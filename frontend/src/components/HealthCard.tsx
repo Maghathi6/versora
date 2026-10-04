@@ -1,32 +1,12 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ApiSuccessResponse, HealthCheckData } from '../types/api';
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
+import { healthService } from '../services/apiClient';
+import { HealthCheckData } from '../types/api';
+import { formatUptime, formatDate } from '../utils';
 
 interface FetchHealthResult {
   data: HealthCheckData;
   latencyMs: number;
-}
-
-async function fetchHealth(): Promise<FetchHealthResult> {
-  const start = performance.now();
-  const res = await fetch(`${API_BASE_URL}/health`);
-  const latencyMs = Math.round(performance.now() - start);
-
-  if (!res.ok) {
-    throw new Error(`HTTP error ${res.status}: ${res.statusText}`);
-  }
-
-  const json: ApiSuccessResponse<HealthCheckData> = await res.json();
-  if (!json.success || !json.data) {
-    throw new Error('API returned invalid payload format');
-  }
-
-  return {
-    data: json.data,
-    latencyMs,
-  };
 }
 
 export const HealthCard: React.FC = () => {
@@ -40,7 +20,7 @@ export const HealthCard: React.FC = () => {
     refetch,
   } = useQuery<FetchHealthResult, Error>({
     queryKey: ['systemHealth'],
-    queryFn: fetchHealth,
+    queryFn: () => healthService.getHealth(),
     refetchInterval: 10000, // automatically poll every 10s
     retry: 2,
   });
@@ -113,7 +93,9 @@ export const HealthCard: React.FC = () => {
             </div>
             <div className="metric-row">
               <span className="metric-label">Server Uptime</span>
-              <span className="metric-value font-mono">{healthResult.data.uptimeSeconds}s</span>
+              <span className="metric-value font-mono">
+                {formatUptime(healthResult.data.uptimeSeconds)} ({healthResult.data.uptimeSeconds}s)
+              </span>
             </div>
             <div className="metric-row">
               <span className="metric-label">Round-Trip Latency</span>
@@ -124,7 +106,7 @@ export const HealthCard: React.FC = () => {
             <div className="metric-row">
               <span className="metric-label">Server Timestamp</span>
               <span className="metric-value font-mono" style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                {healthResult.data.timestamp}
+                {formatDate(healthResult.data.timestamp)}
               </span>
             </div>
           </div>
