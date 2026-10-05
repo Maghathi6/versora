@@ -16,6 +16,10 @@ const envSchema = z.object({
     .enum(['development', 'test', 'production'])
     .default('development'),
   CORS_ORIGIN: z.string().default('http://localhost:5173'),
+  DATABASE_URL: z
+    .string()
+    .url('DATABASE_URL must be a valid connection URL (e.g. postgresql://user:pass@host:5432/db)')
+    .optional(),
 });
 
 const parsedEnv = envSchema.safeParse(process.env);
