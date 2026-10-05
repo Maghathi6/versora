@@ -8,9 +8,9 @@ Development follows a rigorous incremental model: **no phase begins until its pr
 ## 📅 Roadmap Overview
 
 ```
-Phase 0: Product Architecture & Foundation ───▶ [CURRENT]
-Phase 1: Application Foundation & DB Connectivity
-Phase 2: Authentication & User Accounts
+Phase 0: Product Architecture & Foundation ───▶ [COMPLETED]
+Phase 1: Application Foundation ──────────────▶ [COMPLETED]
+Phase 2: Authentication & User Accounts ─────▶ [NEXT]
 Phase 3: Dashboard & Navigation Shell
 Phase 4: Project Management & Repo Provisioning
 Phase 5: Artifact & File Explorer
@@ -31,7 +31,7 @@ Phase 16: Security Audit, Optimization & Deployment
 
 ## 📋 Phase Breakdown
 
-### Phase 0 — Product Architecture & Foundation (Current Phase)
+### Phase 0 — Product Architecture & Foundation (Completed)
 - **Goal:** Establish core system architecture, design system tokens, project directory structure, strict TypeScript rules, core documentation, and verified client-server connectivity.
 - **Deliverables:**
   - `README.md`, `ARCHITECTURE.md`, `REQUIREMENTS.md`, `DATABASE_SCHEMA.md`, `API_SPEC.md`, `DEVELOPMENT_PLAN.md`.
@@ -42,13 +42,17 @@ Phase 16: Security Audit, Optimization & Deployment
 
 ---
 
-### Phase 1 — Application Foundation & Database Connection
-- **Goal:** Configure PostgreSQL connection via Drizzle ORM, establish database migration tooling, shared API response helpers, and foundational UI layout shell.
+### Phase 1 — Application Foundation (Completed)
+- **Goal:** Convert the frontend into a full routed application with public landing and authenticated app shell; create a centralized API client, global persistent Beginner/Advanced terminology system, honest empty states for future phases, and backend module boundaries.
 - **Deliverables:**
-  - Drizzle ORM configuration and database migration runner.
-  - Shared domain models and Zod schemas between client and server.
-  - Base application layout shell with sidebar, breadcrumbs, and theme support.
-- **Exit Criteria:** Database connectivity test passes; initial migration runs cleanly.
+  - Full client-side routing via `react-router-dom`: `/`, `/login`, `/signup`, `/dashboard`, `/projects`, `/activity`, `/reviews`, `/notifications`, `/settings`, and `*` 404 handler.
+  - SaaS-grade public landing page introducing the core message, two pillars, dual-mode demonstration, and clear CTAs.
+  - Application shell (`AppShell`) with responsive desktop/tablet/mobile sidebar, breadcrumbs, and live backend status indicator.
+  - `TerminologyContext` persisting Beginner vs. Advanced preference in `localStorage` across page reloads.
+  - Centralized API client (`apiClient.ts`) with typed error handling and `healthService`.
+  - Reusable design system components: `Button`, `Badge`, `EmptyState`, `PageHeader`, `ModeToggle`, and inline SVG `Icons`.
+  - Backend modular directory structure (`backend/src/modules/`) defining future domain boundaries without fake endpoints.
+- **Exit Criteria:** All routes resolve cleanly; frontend and backend typechecks and production builds pass with 0 errors; real health endpoint verified; no mock or fake functionality introduced.
 
 ---
 

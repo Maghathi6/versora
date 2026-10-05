@@ -1,8 +1,9 @@
 import React from 'react';
-import { ViewMode } from '../types/api';
+import { useTerminology } from '../context/TerminologyContext';
+import { TerminologyMode } from '../utils/terminology';
 
 interface TerminologyPreviewProps {
-  viewMode: ViewMode;
+  viewMode?: TerminologyMode;
 }
 
 interface TermPair {
@@ -23,7 +24,10 @@ const TERMINOLOGY_DATA: TermPair[] = [
   { beginner: 'Project Version', git: 'Tag / Release', intention: 'Freeze a milestone release snapshot (e.g. Paper Submission)' },
 ];
 
-export const TerminologyPreview: React.FC<TerminologyPreviewProps> = ({ viewMode }) => {
+export const TerminologyPreview: React.FC<TerminologyPreviewProps> = ({ viewMode: propViewMode }) => {
+  const { mode: contextMode } = useTerminology();
+  const activeMode = propViewMode || contextMode;
+
   return (
     <div className="card">
       <div className="card-header">
@@ -32,7 +36,7 @@ export const TerminologyPreview: React.FC<TerminologyPreviewProps> = ({ viewMode
           <span>Dual-Mode Terminology Engine</span>
         </div>
         <span className="badge badge-brand">
-          Active: {viewMode === 'beginner' ? 'Beginner Mode' : 'Advanced Mode'}
+          Active: {activeMode === 'beginner' ? 'Beginner Mode' : 'Advanced Mode'}
         </span>
       </div>
 
@@ -55,8 +59,8 @@ export const TerminologyPreview: React.FC<TerminologyPreviewProps> = ({ viewMode
                 <td
                   className="term-beginner"
                   style={{
-                    backgroundColor: viewMode === 'beginner' ? 'rgba(6, 182, 212, 0.08)' : 'transparent',
-                    fontWeight: viewMode === 'beginner' ? 700 : 500,
+                    backgroundColor: activeMode === 'beginner' ? 'rgba(6, 182, 212, 0.08)' : 'transparent',
+                    fontWeight: activeMode === 'beginner' ? 700 : 500,
                   }}
                 >
                   {item.beginner}
@@ -64,8 +68,8 @@ export const TerminologyPreview: React.FC<TerminologyPreviewProps> = ({ viewMode
                 <td
                   className="term-git"
                   style={{
-                    backgroundColor: viewMode === 'advanced' ? 'rgba(99, 102, 241, 0.12)' : 'transparent',
-                    fontWeight: viewMode === 'advanced' ? 700 : 400,
+                    backgroundColor: activeMode === 'advanced' ? 'rgba(99, 102, 241, 0.12)' : 'transparent',
+                    fontWeight: activeMode === 'advanced' ? 700 : 400,
                   }}
                 >
                   {item.git}
