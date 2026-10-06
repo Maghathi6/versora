@@ -1,7 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
-import { authService, IAuthService } from './auth.service';
+import { authService, IAuthService, AuthResult } from './auth.service';
 import { ApiSuccessResponse } from '../../types/api';
 import { SafeUser } from '../users/user.types';
+import { UnauthorizedError } from './auth.errors';
 
 /**
  * Controller responsible for authentication HTTP endpoints.
@@ -42,15 +43,37 @@ export class AuthController {
 
   /**
    * HTTP POST handler for user login: POST /api/v1/auth/login
-   * Passes request payload to AuthService and returns 200 with SafeUser data.
+   * Passes request payload to AuthService and returns 200 with AuthResult (user + accessToken).
    */
   login = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const user = await this.service.login(req.body);
+      const authResult = await this.service.login(req.body);
+
+      const response: ApiSuccessResponse<AuthResult> = {
+        success: true,
+        data: authResult,
+        timestamp: new Date().toISOString(),
+      };
+
+      res.status(200).json(response);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * HTTP GET handler for retrieving current authenticated user: GET /api/v1/auth/me
+   * Reads req.user populated by auth middleware and returns HTTP 200 with SafeUser.
+   */
+  me = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      if (!req.user) {
+        throw new UnauthorizedError('Authentication token is invalid or missing.');
+      }
 
       const response: ApiSuccessResponse<SafeUser> = {
         success: true,
-        data: user,
+        data: req.user,
         timestamp: new Date().toISOString(),
       };
 
@@ -64,3 +87,4 @@ export class AuthController {
 export const authController = new AuthController();
 export const registerHandler = authController.register;
 export const loginHandler = authController.login;
+export const meHandler = authController.me;

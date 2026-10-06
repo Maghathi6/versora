@@ -9,17 +9,28 @@ import {
   LoginValidationError,
   InvalidCredentialsError,
 } from './auth.errors';
+import { ITokenService, tokenService } from './token.service';
+
+export interface AuthResult {
+  user: SafeUser;
+  accessToken: string;
+}
 
 export interface IAuthService {
   register(input: unknown): Promise<SafeUser>;
-  login(input: unknown): Promise<SafeUser>;
+  login(input: unknown): Promise<AuthResult>;
 }
 
 export class AuthService implements IAuthService {
   private userRepo: IUserRepository;
+  private tokenSvc: ITokenService;
 
-  constructor(userRepo: IUserRepository = userRepository) {
+  constructor(
+    userRepo: IUserRepository = userRepository,
+    tokenSvc: ITokenService = tokenService
+  ) {
     this.userRepo = userRepo;
+    this.tokenSvc = tokenSvc;
   }
 
   /**
@@ -85,14 +96,15 @@ export class AuthService implements IAuthService {
    * 5. Verify password using Argon2id verifyPassword()
    * 6. If password verification fails, throw generic InvalidCredentialsError
    * 7. Convert user entity to SafeUser (stripping passwordHash)
-   * 8. Return SafeUser
+   * 8. Generate signed JWT access token via tokenService
+   * 9. Return AuthResult { user: SafeUser, accessToken: string }
    *
    * Security Guarantees:
    * - Generic error prevents email enumeration
    * - Passwords and password hashes are never logged or exposed
-   * - Does not issue tokens or manage sessions in this unit
+   * - Token payload is strictly minimal and expires promptly
    */
-  async login(rawInput: unknown): Promise<SafeUser> {
+  async login(rawInput: unknown): Promise<AuthResult> {
     // 1. Validate login input
     const parseResult = loginSchema.safeParse(rawInput);
     if (!parseResult.success) {
@@ -122,8 +134,20 @@ export class AuthService implements IAuthService {
       throw new InvalidCredentialsError();
     }
 
-    // 7 & 8. Convert and return SafeUser
-    return toSafeUser(user);
+    // 7. Convert user entity to SafeUser (stripping passwordHash)
+    const safeUser = toSafeUser(user);
+
+    // 8. Generate JWT access token
+    const accessToken = this.tokenSvc.signAccessToken({
+      userId: safeUser.id,
+      username: safeUser.username,
+    });
+
+    // 9. Return authenticated result
+    return {
+      user: safeUser,
+      accessToken,
+    };
   }
 }
 

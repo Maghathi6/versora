@@ -9,6 +9,7 @@ import { IUserRepository } from '../users/user.repository';
 import { User, NewUser } from '../users/user.types';
 import { notFoundHandler, globalErrorHandler } from '../../middlewares/error.middleware';
 import { hashPassword } from './password';
+import { createAuthMiddleware } from '../../middlewares/auth.middleware';
 
 // In-memory test repository for exercising the HTTP boundary without a live DB
 function createStubUserRepository(seedUsers: User[] = []): IUserRepository {
@@ -310,6 +311,7 @@ describe('HTTP Login Endpoint (POST /api/v1/auth/login)', () => {
 
     const userRepo = createStubUserRepository([seededLoginUser]);
     const service = new AuthService(userRepo);
+    const authMiddleware = createAuthMiddleware({ userRepo });
 
     // Build test Express application matching the production routing structure
     const app: Application = express();
@@ -317,9 +319,9 @@ describe('HTTP Login Endpoint (POST /api/v1/auth/login)', () => {
 
     const rootRouter = Router();
     const v1Router = Router();
-    v1Router.use('/auth', createAuthRouter(service));
+    v1Router.use('/auth', createAuthRouter(service, authMiddleware));
     rootRouter.use('/v1', v1Router);
-    rootRouter.use('/auth', createAuthRouter(service));
+    rootRouter.use('/auth', createAuthRouter(service, authMiddleware));
 
     app.use('/api', rootRouter);
     app.use(notFoundHandler);
@@ -340,7 +342,7 @@ describe('HTTP Login Endpoint (POST /api/v1/auth/login)', () => {
     });
   });
 
-  it('correct email + correct password returns HTTP 200 with SafeUser and success true', async () => {
+  it('correct email + correct password returns HTTP 200 with SafeUser and accessToken', async () => {
     const res = await fetch(`${baseUrl}/api/v1/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -356,27 +358,33 @@ describe('HTTP Login Endpoint (POST /api/v1/auth/login)', () => {
     const body = (await res.json()) as {
       success: boolean;
       data: {
-        id: string;
-        username: string;
-        email: string;
-        displayName: string;
-        avatarUrl: string | null;
-        bio: string | null;
-        createdAt: string;
-        updatedAt: string;
+        user: {
+          id: string;
+          username: string;
+          email: string;
+          displayName: string;
+          avatarUrl: string | null;
+          bio: string | null;
+          createdAt: string;
+          updatedAt: string;
+        };
+        accessToken: string;
       };
       timestamp: string;
     };
 
     assert.equal(body.success, true);
-    assert.equal(body.data.id, seededLoginUser.id);
-    assert.equal(body.data.username, seededLoginUser.username);
-    assert.equal(body.data.email, seededLoginUser.email);
-    assert.equal(body.data.displayName, seededLoginUser.displayName);
-    assert.equal(body.data.avatarUrl, seededLoginUser.avatarUrl);
-    assert.equal(body.data.bio, seededLoginUser.bio);
-    assert.ok(body.data.createdAt);
-    assert.ok(body.data.updatedAt);
+    assert.equal(body.data.user.id, seededLoginUser.id);
+    assert.equal(body.data.user.username, seededLoginUser.username);
+    assert.equal(body.data.user.email, seededLoginUser.email);
+    assert.equal(body.data.user.displayName, seededLoginUser.displayName);
+    assert.equal(body.data.user.avatarUrl, seededLoginUser.avatarUrl);
+    assert.equal(body.data.user.bio, seededLoginUser.bio);
+    assert.ok(body.data.user.createdAt);
+    assert.ok(body.data.user.updatedAt);
+    assert.ok(body.data.accessToken, 'accessToken should be present');
+    assert.equal(typeof body.data.accessToken, 'string');
+    assert.equal(body.data.accessToken.split('.').length, 3);
     assert.ok(body.timestamp);
   });
 
@@ -400,8 +408,8 @@ describe('HTTP Login Endpoint (POST /api/v1/auth/login)', () => {
     );
 
     const body = JSON.parse(rawText);
-    assert.equal('passwordHash' in body.data, false);
-    assert.equal((body.data as Record<string, unknown>).passwordHash, undefined);
+    assert.equal('passwordHash' in body.data.user, false);
+    assert.equal((body.data.user as Record<string, unknown>).passwordHash, undefined);
   });
 
   it('wrong password returns HTTP 401 with INVALID_CREDENTIALS code', async () => {
@@ -565,14 +573,15 @@ describe('HTTP Login Endpoint (POST /api/v1/auth/login)', () => {
     assert.equal(res.status, 200);
     const body = (await res.json()) as {
       success: boolean;
-      data: { email: string };
+      data: { user: { email: string }; accessToken: string };
     };
 
     assert.equal(body.success, true);
-    assert.equal(body.data.email, 'login_user@example.com');
+    assert.equal(body.data.user.email, 'login_user@example.com');
+    assert.ok(body.data.accessToken);
   });
 
-  it('supports POST /api/auth/login route alias seamlessly', async () => {
+  it('supports POST /api/auth/login route alias seamlessly and returns accessToken', async () => {
     const res = await fetch(`${baseUrl}/api/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -585,12 +594,13 @@ describe('HTTP Login Endpoint (POST /api/v1/auth/login)', () => {
     assert.equal(res.status, 200);
     const body = (await res.json()) as {
       success: boolean;
-      data: { username: string; email: string };
+      data: { user: { username: string; email: string }; accessToken: string };
     };
 
     assert.equal(body.success, true);
-    assert.equal(body.data.username, 'login_tester');
-    assert.equal(body.data.email, 'login_user@example.com');
+    assert.equal(body.data.user.username, 'login_tester');
+    assert.equal(body.data.user.email, 'login_user@example.com');
+    assert.ok(body.data.accessToken);
   });
 
   it('malformed JSON payload in request body returns 400 Bad Request', async () => {
@@ -608,5 +618,138 @@ describe('HTTP Login Endpoint (POST /api/v1/auth/login)', () => {
 
     assert.equal(body.success, false);
     assert.equal(body.error.code, 'BAD_REQUEST');
+  });
+
+  it('19. GET /api/v1/auth/me without token returns 401 UNAUTHORIZED', async () => {
+    const res = await fetch(`${baseUrl}/api/v1/auth/me`, {
+      method: 'GET',
+    });
+
+    assert.equal(res.status, 401);
+    const body = (await res.json()) as {
+      success: boolean;
+      error: { code: string; message: string };
+    };
+
+    assert.equal(body.success, false);
+    assert.equal(body.error.code, 'UNAUTHORIZED');
+  });
+
+  it('GET /api/v1/auth/me with invalid/tampered token returns 401 UNAUTHORIZED', async () => {
+    const res = await fetch(`${baseUrl}/api/v1/auth/me`, {
+      method: 'GET',
+      headers: { Authorization: 'Bearer this.is.a.tampered.token' },
+    });
+
+    assert.equal(res.status, 401);
+    const body = (await res.json()) as {
+      success: boolean;
+      error: { code: string; message: string };
+    };
+
+    assert.equal(body.success, false);
+    assert.equal(body.error.code, 'UNAUTHORIZED');
+  });
+
+  it('20. GET /api/v1/auth/me with valid token returns HTTP 200 with SafeUser', async () => {
+    // 1. Obtain access token via login
+    const loginRes = await fetch(`${baseUrl}/api/v1/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: 'login_user@example.com',
+        password: validPassword,
+      }),
+    });
+    const loginBody = (await loginRes.json()) as { data: { accessToken: string } };
+    const token = loginBody.data.accessToken;
+
+    // 2. Access protected /me endpoint
+    const meRes = await fetch(`${baseUrl}/api/v1/auth/me`, {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    assert.equal(meRes.status, 200);
+    const meBody = (await meRes.json()) as {
+      success: boolean;
+      data: {
+        id: string;
+        username: string;
+        email: string;
+        displayName: string;
+        avatarUrl: string | null;
+        bio: string | null;
+        createdAt: string;
+        updatedAt: string;
+      };
+      timestamp: string;
+    };
+
+    assert.equal(meBody.success, true);
+    assert.equal(meBody.data.id, seededLoginUser.id);
+    assert.equal(meBody.data.username, seededLoginUser.username);
+    assert.equal(meBody.data.email, seededLoginUser.email);
+    assert.equal(meBody.data.displayName, seededLoginUser.displayName);
+    assert.ok(meBody.data.createdAt);
+    assert.ok(meBody.data.updatedAt);
+    assert.ok(meBody.timestamp);
+  });
+
+  it('supports GET /api/auth/me route alias seamlessly with valid token', async () => {
+    const loginRes = await fetch(`${baseUrl}/api/v1/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: 'login_user@example.com',
+        password: validPassword,
+      }),
+    });
+    const loginBody = (await loginRes.json()) as { data: { accessToken: string } };
+    const token = loginBody.data.accessToken;
+
+    const meRes = await fetch(`${baseUrl}/api/auth/me`, {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    assert.equal(meRes.status, 200);
+    const meBody = (await meRes.json()) as {
+      success: boolean;
+      data: { id: string; username: string };
+    };
+
+    assert.equal(meBody.success, true);
+    assert.equal(meBody.data.id, seededLoginUser.id);
+  });
+
+  it('21. CRITICAL SECURITY: passwordHash is strictly absent from /me response', async () => {
+    const loginRes = await fetch(`${baseUrl}/api/v1/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: 'login_user@example.com',
+        password: validPassword,
+      }),
+    });
+    const loginBody = (await loginRes.json()) as { data: { accessToken: string } };
+    const token = loginBody.data.accessToken;
+
+    const meRes = await fetch(`${baseUrl}/api/v1/auth/me`, {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    assert.equal(meRes.status, 200);
+    const rawText = await meRes.text();
+    assert.equal(
+      rawText.includes('passwordHash'),
+      false,
+      'passwordHash must not appear in /me serialized response'
+    );
+
+    const body = JSON.parse(rawText);
+    assert.equal('passwordHash' in body.data, false);
+    assert.equal((body.data as Record<string, unknown>).passwordHash, undefined);
   });
 });

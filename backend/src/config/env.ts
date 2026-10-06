@@ -20,6 +20,20 @@ const envSchema = z.object({
     .string()
     .url('DATABASE_URL must be a valid connection URL (e.g. postgresql://user:pass@host:5432/db)')
     .optional(),
+  JWT_SECRET: z
+    .string({
+      required_error: 'JWT_SECRET is required. Please set it in your .env file or environment variables.',
+      invalid_type_error: 'JWT_SECRET must be a string.',
+    })
+    .min(16, 'JWT_SECRET must be at least 16 characters long')
+    .default(
+      process.env.NODE_ENV === 'test'
+        ? 'test-jwt-secret-key-at-least-16-chars-long'
+        : (undefined as unknown as string)
+    ),
+  JWT_EXPIRES_IN: z
+    .string()
+    .default('15m'),
 });
 
 const parsedEnv = envSchema.safeParse(process.env);

@@ -216,23 +216,29 @@ describe('Login Service (AuthService)', () => {
     service = new AuthService(createStubUserRepository([seededUser]));
   });
 
-  it('should successfully log in with valid email and correct password', async () => {
+  it('should successfully log in with valid email and correct password, returning SafeUser and accessToken', async () => {
     const result = await service.login({
       email: 'john.doe@example.com',
       password: plainPassword,
     });
 
-    assert.equal(result.id, seededUser.id);
-    assert.equal(result.username, seededUser.username);
-    assert.equal(result.email, seededUser.email);
-    assert.equal(result.displayName, seededUser.displayName);
-    assert.equal(result.avatarUrl, seededUser.avatarUrl);
-    assert.equal(result.bio, seededUser.bio);
-    assert.deepEqual(result.createdAt, seededUser.createdAt);
-    assert.deepEqual(result.updatedAt, seededUser.updatedAt);
+    assert.ok(result.user);
+    assert.equal(result.user.id, seededUser.id);
+    assert.equal(result.user.username, seededUser.username);
+    assert.equal(result.user.email, seededUser.email);
+    assert.equal(result.user.displayName, seededUser.displayName);
+    assert.equal(result.user.avatarUrl, seededUser.avatarUrl);
+    assert.equal(result.user.bio, seededUser.bio);
+    assert.deepEqual(result.user.createdAt, seededUser.createdAt);
+    assert.deepEqual(result.user.updatedAt, seededUser.updatedAt);
+
+    // Verify accessToken
+    assert.ok(result.accessToken, 'Should return accessToken');
+    assert.equal(typeof result.accessToken, 'string');
+    assert.equal(result.accessToken.split('.').length, 3, 'JWT should contain 3 parts');
   });
 
-  it('should fail with InvalidCredentialsError when an incorrect password is provided', async () => {
+  it('should fail with InvalidCredentialsError when an incorrect password is provided (and no token is issued)', async () => {
     await assert.rejects(
       async () => {
         await service.login({
@@ -250,7 +256,7 @@ describe('Login Service (AuthService)', () => {
     );
   });
 
-  it('should fail with the same InvalidCredentialsError when email does not exist (preventing email enumeration)', async () => {
+  it('should fail with the same InvalidCredentialsError when email does not exist (preventing email enumeration and no token issued)', async () => {
     let wrongPasswordError: InvalidCredentialsError | undefined;
     let unknownEmailError: InvalidCredentialsError | undefined;
 
@@ -292,8 +298,9 @@ describe('Login Service (AuthService)', () => {
       password: plainPassword,
     });
 
-    assert.equal(result.id, seededUser.id);
-    assert.equal(result.email, 'john.doe@example.com');
+    assert.equal(result.user.id, seededUser.id);
+    assert.equal(result.user.email, 'john.doe@example.com');
+    assert.ok(result.accessToken);
   });
 
   it('should return SafeUser and strictly omit passwordHash upon successful login', async () => {
@@ -303,17 +310,17 @@ describe('Login Service (AuthService)', () => {
     });
 
     // Verify SafeUser fields exist
-    assert.ok(result.id);
-    assert.ok(result.username);
-    assert.ok(result.email);
-    assert.ok(result.displayName);
-    assert.ok(result.createdAt);
-    assert.ok(result.updatedAt);
+    assert.ok(result.user.id);
+    assert.ok(result.user.username);
+    assert.ok(result.user.email);
+    assert.ok(result.user.displayName);
+    assert.ok(result.user.createdAt);
+    assert.ok(result.user.updatedAt);
 
     // CRITICAL SECURITY: passwordHash must NEVER be present on the returned SafeUser object
-    assert.equal('passwordHash' in result, false, 'passwordHash must not exist on SafeUser');
+    assert.equal('passwordHash' in result.user, false, 'passwordHash must not exist on SafeUser');
     assert.equal(
-      (result as Record<string, unknown>).passwordHash,
+      (result.user as Record<string, unknown>).passwordHash,
       undefined,
       'passwordHash must be strictly undefined'
     );

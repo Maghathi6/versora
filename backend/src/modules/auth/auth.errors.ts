@@ -72,3 +72,10 @@ export class InvalidCredentialsError extends AuthServiceError {
     this.name = 'InvalidCredentialsError';
   }
 }
+
+export class UnauthorizedError extends AuthServiceError {
+  constructor(message = 'Authentication token is invalid or missing.') {
+    super(message, 'UNAUTHORIZED', 401);
+    this.name = 'UnauthorizedError';
+  }
+}
