@@ -39,7 +39,28 @@ export class AuthController {
       next(error);
     }
   };
+
+  /**
+   * HTTP POST handler for user login: POST /api/v1/auth/login
+   * Passes request payload to AuthService and returns 200 with SafeUser data.
+   */
+  login = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const user = await this.service.login(req.body);
+
+      const response: ApiSuccessResponse<SafeUser> = {
+        success: true,
+        data: user,
+        timestamp: new Date().toISOString(),
+      };
+
+      res.status(200).json(response);
+    } catch (error) {
+      next(error);
+    }
+  };
 }
 
 export const authController = new AuthController();
 export const registerHandler = authController.register;
+export const loginHandler = authController.login;

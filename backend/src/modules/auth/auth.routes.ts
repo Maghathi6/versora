@@ -19,6 +19,13 @@ export function createAuthRouter(service?: IAuthService): Router {
    */
   router.post('/register', controller.register);
 
+  /**
+   * @route   POST /api/v1/auth/login
+   * @desc    Authenticate user and retrieve safe user details
+   * @access  Public
+   */
+  router.post('/login', controller.login);
+
   return router;
 }
 
