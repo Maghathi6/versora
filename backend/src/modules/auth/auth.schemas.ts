@@ -34,3 +34,22 @@ export const registerSchema = z.object({
 });
 
 export type RegisterInput = z.infer<typeof registerSchema>;
+
+/**
+ * Login Input Validation Schema
+ * Reusable across service boundaries, unit tests, and future HTTP controllers.
+ */
+export const loginSchema = z.object({
+  email: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .email('Invalid email address format')
+    .max(255, 'Email must not exceed 255 characters'),
+  password: z
+    .string()
+    .min(1, 'Password cannot be empty')
+    .max(128, 'Password must not exceed 128 characters'),
+});
+
+export type LoginInput = z.infer<typeof loginSchema>;

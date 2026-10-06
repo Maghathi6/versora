@@ -53,3 +53,22 @@ export class RegistrationValidationError extends AuthServiceError {
     this.name = 'RegistrationValidationError';
   }
 }
+
+export class LoginValidationError extends AuthServiceError {
+  constructor(details: Array<{ field: string; issue: string }>) {
+    super(
+      'Login input failed validation rules.',
+      'VALIDATION_ERROR',
+      400,
+      details
+    );
+    this.name = 'LoginValidationError';
+  }
+}
+
+export class InvalidCredentialsError extends AuthServiceError {
+  constructor(message = 'Invalid email or password.') {
+    super(message, 'INVALID_CREDENTIALS', 401);
+    this.name = 'InvalidCredentialsError';
+  }
+}

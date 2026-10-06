@@ -1,15 +1,18 @@
 import { userRepository, IUserRepository } from '../users/user.repository';
 import { SafeUser, toSafeUser } from '../users/user.types';
-import { hashPassword } from './password';
-import { registerSchema, RegisterInput } from './auth.schemas';
+import { hashPassword, verifyPassword } from './password';
+import { registerSchema, RegisterInput, loginSchema, LoginInput } from './auth.schemas';
 import {
   DuplicateEmailError,
   DuplicateUsernameError,
   RegistrationValidationError,
+  LoginValidationError,
+  InvalidCredentialsError,
 } from './auth.errors';
 
 export interface IAuthService {
   register(input: unknown): Promise<SafeUser>;
+  login(input: unknown): Promise<SafeUser>;
 }
 
 export class AuthService implements IAuthService {
@@ -69,6 +72,58 @@ export class AuthService implements IAuthService {
 
     // 6 & 7. Convert and return SafeUser
     return toSafeUser(createdUser);
+  }
+
+  /**
+   * Authenticates a user with email and password.
+   *
+   * Flow:
+   * 1. Validate login input against loginSchema
+   * 2. Normalize email
+   * 3. Query user by email from userRepository
+   * 4. If user does not exist, throw generic InvalidCredentialsError
+   * 5. Verify password using Argon2id verifyPassword()
+   * 6. If password verification fails, throw generic InvalidCredentialsError
+   * 7. Convert user entity to SafeUser (stripping passwordHash)
+   * 8. Return SafeUser
+   *
+   * Security Guarantees:
+   * - Generic error prevents email enumeration
+   * - Passwords and password hashes are never logged or exposed
+   * - Does not issue tokens or manage sessions in this unit
+   */
+  async login(rawInput: unknown): Promise<SafeUser> {
+    // 1. Validate login input
+    const parseResult = loginSchema.safeParse(rawInput);
+    if (!parseResult.success) {
+      const details = parseResult.error.errors.map((err) => ({
+        field: err.path.join('.'),
+        issue: err.message,
+      }));
+      throw new LoginValidationError(details);
+    }
+
+    const input: LoginInput = parseResult.data;
+
+    // 2. Normalize email
+    const normalizedEmail = input.email.trim().toLowerCase();
+
+    // 3. Find user by email
+    const user = await this.userRepo.findByEmail(normalizedEmail);
+
+    // 4. Verify user exists
+    if (!user) {
+      throw new InvalidCredentialsError();
+    }
+
+    // 5 & 6. Verify password
+    const isPasswordValid = await verifyPassword(input.password, user.passwordHash);
+    if (!isPasswordValid) {
+      throw new InvalidCredentialsError();
+    }
+
+    // 7 & 8. Convert and return SafeUser
+    return toSafeUser(user);
   }
 }
 
