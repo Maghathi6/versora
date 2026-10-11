@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { NavLink, Outlet, Link, useLocation } from 'react-router-dom';
+import { NavLink, Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { BrandLogo } from '../BrandLogo';
 import { ModeToggle } from '../common/ModeToggle';
 import {
@@ -13,13 +13,30 @@ import {
   IconClose,
 } from '../common/Icons';
 import { useTerminology } from '../../context/TerminologyContext';
+import { useAuth } from '../../context/AuthContext';
 import { useQuery } from '@tanstack/react-query';
 import { healthService } from '../../services/apiClient';
 
 export const AppShell: React.FC = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { t } = useTerminology();
+  const { user, logout } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
+
+  const getInitials = (name?: string, fallback = 'U'): string => {
+    if (!name) return fallback;
+    const parts = name.trim().split(/\s+/);
+    if (parts.length >= 2) {
+      return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+    }
+    return name.slice(0, 2).toUpperCase();
+  };
 
   // Real backend health check for the shell status dot
   const { data: healthResult, isLoading: isCheckingHealth } = useQuery({
@@ -97,18 +114,42 @@ export const AppShell: React.FC = () => {
 
         <div className="shell-sidebar-footer">
           <div className="user-profile-badge">
-            <div className="user-avatar">
-              <span>G</span>
-            </div>
+            {user?.avatarUrl ? (
+              <img
+                src={user.avatarUrl}
+                alt={user.displayName || user.username}
+                className="user-avatar"
+                style={{ width: 32, height: 32, borderRadius: 'var(--radius-full)', objectFit: 'cover' }}
+              />
+            ) : (
+              <div className="user-avatar">
+                <span>{getInitials(user?.displayName || user?.username)}</span>
+              </div>
+            )}
             <div className="user-info">
-              <span className="user-name">Guest User</span>
-              <span className="user-status">Phase 2: Auth</span>
+              <span className="user-name">{user?.displayName || user?.username || 'User'}</span>
+              <span className="user-status">@{user?.username || 'user'}</span>
             </div>
           </div>
           <div style={{ marginTop: '0.85rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Link to="/" style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-              &larr; Landing Page
-            </Link>
+            <button
+              type="button"
+              onClick={handleLogout}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'var(--text-muted)',
+                fontSize: '0.8rem',
+                cursor: 'pointer',
+                padding: 0,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+              }}
+              title="Sign out of Versora"
+            >
+              Sign Out &rarr;
+            </button>
             <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>v0.1.0</span>
           </div>
         </div>

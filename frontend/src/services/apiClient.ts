@@ -1,6 +1,31 @@
 import { healthService } from './healthService';
+import { authStorage } from '../utils/authStorage';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
+
+type UnauthorizedCallback = () => void;
+const unauthorizedListeners: Set<UnauthorizedCallback> = new Set();
+
+/**
+ * Registers a listener to be notified when an authenticated API call receives a 401 Unauthorized response.
+ * Returns an unsubscription function.
+ */
+export function onUnauthorized(callback: UnauthorizedCallback): () => void {
+  unauthorizedListeners.add(callback);
+  return () => {
+    unauthorizedListeners.delete(callback);
+  };
+}
+
+function notifyUnauthorized(): void {
+  unauthorizedListeners.forEach((callback) => {
+    try {
+      callback();
+    } catch {
+      // Ignore listener errors
+    }
+  });
+}
 
 /**
  * Standard Application Error for API communication failures.
@@ -26,7 +51,7 @@ export interface RequestOptions extends Omit<RequestInit, 'body'> {
 
 /**
  * Core generic request wrapper handling JSON serialization,
- * query parameter formatting, and error normalization.
+ * query parameter formatting, Bearer token injection, and error normalization.
  */
 async function request<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
   const { params, body, ...fetchOptions } = options;
@@ -47,11 +72,17 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
     }
   }
 
-  const headers: HeadersInit = {
+  const token = authStorage.getToken();
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     Accept: 'application/json',
-    ...(fetchOptions.headers || {}),
+    ...((fetchOptions.headers as Record<string, string>) || {}),
   };
+
+  // Automatically attach Bearer token when available
+  if (token && !headers['Authorization'] && !headers['authorization']) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
 
   let serializedBody: BodyInit | undefined;
   if (body !== undefined) {
@@ -87,6 +118,12 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
 
   if (!response.ok) {
     const errorBody = json as { error?: { code?: string; message?: string; details?: unknown } };
+
+    // If an authenticated request receives 401, notify listeners (skip login itself to avoid loops)
+    if (response.status === 401 && !endpoint.includes('/auth/login')) {
+      notifyUnauthorized();
+    }
+
     throw new ApiError(
       errorBody?.error?.message || `Request failed with status ${response.status}`,
       errorBody?.error?.code || 'API_ERROR',

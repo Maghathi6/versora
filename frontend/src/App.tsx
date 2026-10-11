@@ -1,6 +1,8 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { TerminologyProvider } from './context/TerminologyContext';
+import { AuthProvider } from './context/AuthContext';
+import { ProtectedRoute } from './components/common/ProtectedRoute';
 import { AppShell } from './components/layout/AppShell';
 
 /* Page Imports */
@@ -17,30 +19,34 @@ import { NotFoundPage } from './pages/NotFoundPage';
 
 export const App: React.FC = () => {
   return (
-    <TerminologyProvider>
-      <BrowserRouter>
-        <Routes>
-          {/* Public Routes */}
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/signup" element={<SignupPage />} />
+    <AuthProvider>
+      <TerminologyProvider>
+        <BrowserRouter>
+          <Routes>
+            {/* Public Routes */}
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/signup" element={<SignupPage />} />
 
-          {/* Application Shell Routes */}
-          <Route element={<AppShell />}>
-            <Route path="/dashboard" element={<DashboardPage />} />
-            <Route path="/projects" element={<ProjectsPage />} />
-            <Route path="/activity" element={<ActivityPage />} />
-            <Route path="/reviews" element={<ReviewsPage />} />
-            <Route path="/notifications" element={<NotificationsPage />} />
-            <Route path="/settings" element={<SettingsPage />} />
-          </Route>
+            {/* Protected Application Routes */}
+            <Route element={<ProtectedRoute />}>
+              <Route element={<AppShell />}>
+                <Route path="/dashboard" element={<DashboardPage />} />
+                <Route path="/projects" element={<ProjectsPage />} />
+                <Route path="/activity" element={<ActivityPage />} />
+                <Route path="/reviews" element={<ReviewsPage />} />
+                <Route path="/notifications" element={<NotificationsPage />} />
+                <Route path="/settings" element={<SettingsPage />} />
+              </Route>
+            </Route>
 
-          {/* Fallback & Catch-All */}
-          <Route path="/overview" element={<Navigate to="/dashboard" replace />} />
-          <Route path="*" element={<NotFoundPage />} />
-        </Routes>
-      </BrowserRouter>
-    </TerminologyProvider>
+            {/* Fallback & Catch-All */}
+            <Route path="/overview" element={<Navigate to="/dashboard" replace />} />
+            <Route path="*" element={<NotFoundPage />} />
+          </Routes>
+        </BrowserRouter>
+      </TerminologyProvider>
+    </AuthProvider>
   );
 };
 
