@@ -17,6 +17,16 @@ export type NewUser = typeof users.$inferInsert;
 export type SafeUser = Omit<User, 'passwordHash'>;
 
 /**
+ * Permitted mutable fields for user profile updates.
+ * Excludes immutable identity attributes and credentials (id, email, passwordHash).
+ */
+export interface UpdateUserData {
+  displayName?: string;
+  username?: string;
+  bio?: string | null;
+}
+
+/**
  * Utility function to strip sensitive authentication credentials from a user record.
  */
 export function toSafeUser(user: User): SafeUser {
@@ -24,3 +34,4 @@ export function toSafeUser(user: User): SafeUser {
   const { passwordHash, ...safeUser } = user;
   return safeUser;
 }
+

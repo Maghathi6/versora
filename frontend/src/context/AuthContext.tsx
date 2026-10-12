@@ -9,6 +9,7 @@ export interface AuthContextValue extends AuthState {
   signup: (input: RegisterInput) => Promise<AuthUser>;
   logout: () => void;
   refreshUser: () => Promise<void>;
+  updateUser: (updatedUser: AuthUser) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -67,6 +68,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return createdUser;
   }, []);
 
+  const updateUser = useCallback((updatedUser: AuthUser) => {
+    setUser(updatedUser);
+  }, []);
+
   const value: AuthContextValue = {
     user,
     isAuthenticated: Boolean(user),
@@ -75,7 +80,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     signup,
     logout,
     refreshUser,
+    updateUser,
   };
+
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

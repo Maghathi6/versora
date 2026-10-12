@@ -1,14 +1,16 @@
 import { eq } from 'drizzle-orm';
 import { db } from '../../db';
 import { users } from '../../db/schema/users';
-import { User, NewUser } from './user.types';
+import { User, NewUser, UpdateUserData } from './user.types';
 
 export interface IUserRepository {
   findById(id: string): Promise<User | null>;
   findByEmail(email: string): Promise<User | null>;
   findByUsername(username: string): Promise<User | null>;
   create(userData: NewUser): Promise<User>;
+  update(id: string, data: UpdateUserData): Promise<User | null>;
 }
+
 
 export const userRepository: IUserRepository = {
   /**
@@ -63,4 +65,30 @@ export const userRepository: IUserRepository = {
       .returning();
     return rows[0];
   },
+
+  /**
+   * Updates permitted profile fields of an existing user and returns the updated entity.
+   */
+  async update(id: string, data: UpdateUserData): Promise<User | null> {
+    const updatePayload: Partial<typeof users.$inferInsert> = {
+      updatedAt: new Date(),
+    };
+    if (data.displayName !== undefined) {
+      updatePayload.displayName = data.displayName.trim();
+    }
+    if (data.username !== undefined) {
+      updatePayload.username = data.username.toLowerCase().trim();
+    }
+    if (data.bio !== undefined) {
+      updatePayload.bio = data.bio === null ? null : data.bio.trim();
+    }
+
+    const rows = await db
+      .update(users)
+      .set(updatePayload)
+      .where(eq(users.id, id))
+      .returning();
+    return rows[0] || null;
+  },
 };
+

@@ -5,7 +5,7 @@ import { createAuthMiddleware } from './auth.middleware';
 import { TokenService } from '../modules/auth/token.service';
 import { UnauthorizedError } from '../modules/auth/auth.errors';
 import { IUserRepository } from '../modules/users/user.repository';
-import { User, NewUser } from '../modules/users/user.types';
+import { User, NewUser, UpdateUserData } from '../modules/users/user.types';
 
 describe('Authentication Middleware (auth.middleware)', () => {
   const secretKey = 'test-secret-key-for-auth-middleware-tests';
@@ -48,8 +48,18 @@ describe('Authentication Middleware (auth.middleware)', () => {
           updatedAt: new Date(),
         };
       },
+      async update(id: string, data: UpdateUserData): Promise<User | null> {
+        const user = list.find((u) => u.id === id);
+        if (!user) return null;
+        if (data.displayName !== undefined) user.displayName = data.displayName.trim();
+        if (data.username !== undefined) user.username = data.username.toLowerCase().trim();
+        if (data.bio !== undefined) user.bio = data.bio === null ? null : data.bio.trim();
+        user.updatedAt = new Date();
+        return user;
+      },
     };
   }
+
 
   const userRepo = createStubUserRepo([activeUser]);
   const middleware = createAuthMiddleware({ userRepo, tokenSvc });

@@ -6,7 +6,7 @@ import express, { Application, Router } from 'express';
 import { createAuthRouter } from './auth.routes';
 import { AuthService } from './auth.service';
 import { IUserRepository } from '../users/user.repository';
-import { User, NewUser } from '../users/user.types';
+import { User, NewUser, UpdateUserData } from '../users/user.types';
 import { notFoundHandler, globalErrorHandler } from '../../middlewares/error.middleware';
 import { hashPassword } from './password';
 import { createAuthMiddleware } from '../../middlewares/auth.middleware';
@@ -40,8 +40,18 @@ function createStubUserRepository(seedUsers: User[] = []): IUserRepository {
       usersList.push(newUser);
       return newUser;
     },
+    async update(id: string, data: UpdateUserData): Promise<User | null> {
+      const user = usersList.find((u) => u.id === id);
+      if (!user) return null;
+      if (data.displayName !== undefined) user.displayName = data.displayName.trim();
+      if (data.username !== undefined) user.username = data.username.toLowerCase().trim();
+      if (data.bio !== undefined) user.bio = data.bio === null ? null : data.bio.trim();
+      user.updatedAt = new Date();
+      return user;
+    },
   };
 }
+
 
 describe('HTTP Registration Endpoint (POST /api/v1/auth/register)', () => {
   let server: Server;

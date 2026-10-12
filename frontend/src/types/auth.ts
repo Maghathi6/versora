@@ -36,3 +36,10 @@ export interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
 }
+
+export interface UpdateProfileInput {
+  displayName?: string;
+  username?: string;
+  bio?: string | null;
+}
+
