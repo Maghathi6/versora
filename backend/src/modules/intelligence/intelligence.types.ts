@@ -83,8 +83,17 @@ export interface ActivityItem {
   actorUsername?: string;
   actorDisplayName?: string;
   eventType: string;
-  entityType: 'artifact' | 'git' | 'github' | 'relationship';
-  entityId: string | null;
+  entityType:
+    | 'artifact'
+    | 'git'
+    | 'github'
+    | 'relationship'
+    | 'task'
+    | 'review'
+    | 'comment'
+    | 'member'
+    | 'collaboration'
+    | string;
   summary: string;
   metadata: Record<string, unknown> | null;
   createdAt: string;

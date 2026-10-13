@@ -17,6 +17,9 @@ import { useAuth } from '../../context/AuthContext';
 import { useQuery } from '@tanstack/react-query';
 import { healthService } from '../../services/apiClient';
 
+import { NotificationBell } from '../collaboration/NotificationBell';
+import { collaborationService } from '../../services/collaborationService';
+
 export const AppShell: React.FC = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { t } = useTerminology();
@@ -47,12 +50,21 @@ export const AppShell: React.FC = () => {
 
   const isBackendHealthy = healthResult?.data?.status === 'healthy';
 
+  // Real unread notification count
+  const { data: unreadNotificationsData } = useQuery({
+    queryKey: ['notifications', 'unread-count'],
+    queryFn: () => collaborationService.getUnreadNotificationCount(),
+    refetchInterval: 30000,
+    enabled: !!user,
+  });
+  const unreadCount = unreadNotificationsData ?? 0;
+
   const navItems = [
     { to: '/dashboard', label: 'Overview', icon: <IconDashboard size={18} /> },
     { to: '/projects', label: t('projects'), icon: <IconProjects size={18} /> },
     { to: '/activity', label: 'Activity', icon: <IconActivity size={18} /> },
     { to: '/reviews', label: t('reviews'), icon: <IconReviews size={18} /> },
-    { to: '/notifications', label: 'Notifications', icon: <IconNotifications size={18} /> },
+    { to: '/notifications', label: 'Notifications', icon: <IconNotifications size={18} />, badge: unreadCount > 0 ? unreadCount : undefined },
     { to: '/settings', label: 'Settings', icon: <IconSettings size={18} /> },
   ];
 
@@ -108,6 +120,21 @@ export const AppShell: React.FC = () => {
             >
               <span className="nav-icon">{item.icon}</span>
               <span className="nav-label">{item.label}</span>
+              {item.badge !== undefined && (
+                <span
+                  style={{
+                    marginLeft: 'auto',
+                    background: 'var(--brand-primary)',
+                    color: '#fff',
+                    borderRadius: '10px',
+                    padding: '0.1rem 0.45rem',
+                    fontSize: '0.72rem',
+                    fontWeight: 700,
+                  }}
+                >
+                  {item.badge}
+                </span>
+              )}
             </NavLink>
           ))}
         </nav>
@@ -175,7 +202,10 @@ export const AppShell: React.FC = () => {
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            {/* Real Persistent Notification Center Bell */}
+            <NotificationBell />
+
             {/* Real API Status Indicator */}
             <div
               style={{

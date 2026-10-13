@@ -36,6 +36,13 @@
       "when": 1791867617582,
       "tag": "0004_lucky_madame_hydra",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791885179882,
+      "tag": "0005_old_yellow_claw",
+      "breakpoints": true
     }
   ]
 }

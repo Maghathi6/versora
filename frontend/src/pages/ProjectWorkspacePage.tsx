@@ -23,6 +23,10 @@ import {
   IconEye,
   IconTable,
   IconPresentation,
+  IconTasks,
+  IconReviews,
+  IconUsers,
+  IconMessageSquare,
 } from '../components/common/Icons';
 import { useTerminology } from '../context/TerminologyContext';
 import { projectService } from '../services/projectService';
@@ -74,8 +78,12 @@ import { ProjectActivityTimeline } from '../components/intelligence/ProjectActiv
 import { ImpactAnalysisCard } from '../components/intelligence/ImpactAnalysisCard';
 import { ArtifactTraceabilityModal } from '../components/intelligence/ArtifactTraceabilityModal';
 import { CreateArtifactModal } from '../components/artifacts/CreateArtifactModal';
+import { ProjectTeamTab } from '../components/collaboration/ProjectTeamTab';
+import { ProjectTasksTab } from '../components/collaboration/ProjectTasksTab';
+import { ProjectReviewsTab } from '../components/collaboration/ProjectReviewsTab';
+import { ArtifactCommentsPanel } from '../components/collaboration/ArtifactCommentsPanel';
 
-type WorkspaceTab = 'overview' | 'files' | 'changes' | 'history' | 'activity';
+type WorkspaceTab = 'overview' | 'files' | 'changes' | 'history' | 'tasks' | 'reviews' | 'team' | 'activity';
 
 export const ProjectWorkspacePage: React.FC = () => {
   const { projectId } = useParams<{ projectId: string }>();
@@ -83,7 +91,13 @@ export const ProjectWorkspacePage: React.FC = () => {
   const { t, mode } = useTerminology();
 
   // Navigation tab & folder path from URL
-  const [activeTab, setActiveTab] = useState<WorkspaceTab>('overview');
+  const tabParam = searchParams.get('tab') as WorkspaceTab | null;
+  const [activeTab, setActiveTab] = useState<WorkspaceTab>(
+    tabParam && ['overview', 'files', 'changes', 'history', 'tasks', 'reviews', 'team', 'activity'].includes(tabParam)
+      ? tabParam
+      : 'overview'
+  );
+  const [isCommentsOpen, setIsCommentsOpen] = useState<boolean>(false);
   const currentFolderId = searchParams.get('folder') || null;
 
   // Project & Data State
@@ -813,6 +827,14 @@ export const ProjectWorkspacePage: React.FC = () => {
     setImageZoom(1);
   };
 
+  // Sync activeTab with URL search parameters
+  useEffect(() => {
+    const requestedTab = searchParams.get('tab') as WorkspaceTab | null;
+    if (requestedTab && ['overview', 'files', 'changes', 'history', 'tasks', 'reviews', 'team', 'activity'].includes(requestedTab)) {
+      setActiveTab(requestedTab);
+    }
+  }, [searchParams]);
+
   // Safe tab switching
   const handleSwitchTab = (tab: WorkspaceTab) => {
     if (tab === activeTab) return;
@@ -821,6 +843,9 @@ export const ProjectWorkspacePage: React.FC = () => {
       return;
     }
     setActiveTab(tab);
+    const newParams = new URLSearchParams(searchParams);
+    newParams.set('tab', tab);
+    setSearchParams(newParams);
   };
 
   // Confirm discard unsaved changes and proceed
@@ -840,6 +865,9 @@ export const ProjectWorkspacePage: React.FC = () => {
       }
       setActiveEditorFile(null);
       setActiveTab(pending.target);
+      const newParams = new URLSearchParams(searchParams);
+      newParams.set('tab', pending.target);
+      setSearchParams(newParams);
     } else if (pending.type === 'close') {
       handleCloseEditor();
     }
@@ -1598,6 +1626,69 @@ export const ProjectWorkspacePage: React.FC = () => {
 
         <button
           type="button"
+          onClick={() => handleSwitchTab('tasks')}
+          style={{
+            padding: '0.6rem 0.2rem',
+            background: 'none',
+            border: 'none',
+            borderBottom: activeTab === 'tasks' ? '2px solid var(--brand-primary)' : '2px solid transparent',
+            color: activeTab === 'tasks' ? 'var(--text-primary)' : 'var(--text-secondary)',
+            fontWeight: activeTab === 'tasks' ? 700 : 500,
+            cursor: 'pointer',
+            fontSize: '0.92rem',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.4rem',
+          }}
+        >
+          <IconTasks size={16} />
+          <span>Tasks</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => handleSwitchTab('reviews')}
+          style={{
+            padding: '0.6rem 0.2rem',
+            background: 'none',
+            border: 'none',
+            borderBottom: activeTab === 'reviews' ? '2px solid var(--brand-primary)' : '2px solid transparent',
+            color: activeTab === 'reviews' ? 'var(--text-primary)' : 'var(--text-secondary)',
+            fontWeight: activeTab === 'reviews' ? 700 : 500,
+            cursor: 'pointer',
+            fontSize: '0.92rem',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.4rem',
+          }}
+        >
+          <IconReviews size={16} />
+          <span>Reviews</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => handleSwitchTab('team')}
+          style={{
+            padding: '0.6rem 0.2rem',
+            background: 'none',
+            border: 'none',
+            borderBottom: activeTab === 'team' ? '2px solid var(--brand-primary)' : '2px solid transparent',
+            color: activeTab === 'team' ? 'var(--text-primary)' : 'var(--text-secondary)',
+            fontWeight: activeTab === 'team' ? 700 : 500,
+            cursor: 'pointer',
+            fontSize: '0.92rem',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.4rem',
+          }}
+        >
+          <IconUsers size={16} />
+          <span>Team</span>
+        </button>
+
+        <button
+          type="button"
           onClick={() => handleSwitchTab('activity')}
           style={{
             padding: '0.6rem 0.2rem',
@@ -1921,14 +2012,24 @@ export const ProjectWorkspacePage: React.FC = () => {
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     {activeEditorFile && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => openTraceabilityModal(activeEditorFile)}
-                      >
-                        <IconSparkles size={13} style={{ marginRight: '0.35rem' }} />
-                        Traceability & Relationships
-                      </Button>
+                      <>
+                        <Button
+                          variant={isCommentsOpen ? 'primary' : 'outline'}
+                          size="sm"
+                          onClick={() => setIsCommentsOpen(!isCommentsOpen)}
+                        >
+                          <IconMessageSquare size={13} style={{ marginRight: '0.35rem' }} />
+                          {isCommentsOpen ? 'Hide Discussions' : 'Discussions'}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openTraceabilityModal(activeEditorFile)}
+                        >
+                          <IconSparkles size={13} style={{ marginRight: '0.35rem' }} />
+                          Traceability & Relationships
+                        </Button>
+                      </>
                     )}
                     <Button variant="ghost" size="sm" onClick={handleCloseEditor}>
                       Close Viewer & View Full Table
@@ -2530,6 +2631,31 @@ export const ProjectWorkspacePage: React.FC = () => {
                   })()
                 )}
               </div>
+
+              {/* Collapsible Artifact Discussions Side Panel */}
+              {isCommentsOpen && activeEditorFile && (
+                <div
+                  style={{
+                    width: '380px',
+                    flexShrink: 0,
+                    background: 'var(--bg-surface)',
+                    border: '1px solid var(--border-medium)',
+                    borderRadius: 'var(--radius-lg)',
+                    overflow: 'hidden',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    maxHeight: '750px',
+                  }}
+                >
+                  <ArtifactCommentsPanel
+                    projectId={projectId!}
+                    artifactId={activeEditorFile.id}
+                    artifactName={activeEditorFile.name}
+                    currentCommitHash={gitStatus?.headCommitHash}
+                    onClose={() => setIsCommentsOpen(false)}
+                  />
+                </div>
+              )}
             </div>
           ) : (
             /* Standard Table View when no file is active */
@@ -2774,6 +2900,23 @@ export const ProjectWorkspacePage: React.FC = () => {
                                   >
                                     <IconSparkles size={14} />
                                   </button>
+                                  <button
+                                    type="button"
+                                    className="btn btn-ghost"
+                                    style={{
+                                      padding: '0.3rem 0.5rem',
+                                      fontSize: '0.8rem',
+                                      color: 'var(--text-secondary)',
+                                    }}
+                                    title="Discussions & Comments"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleOpenFile(item);
+                                      setIsCommentsOpen(true);
+                                    }}
+                                  >
+                                    <IconMessageSquare size={14} />
+                                  </button>
                                 </>
                               )}
                               <button
@@ -2846,6 +2989,33 @@ export const ProjectWorkspacePage: React.FC = () => {
             setGitActionError(null);
             setRestoreTargetCommit(commit);
           }}
+        />
+      )}
+
+      {/* TAB: PROJECT TASKS & ISSUES */}
+      {activeTab === 'tasks' && (
+        <ProjectTasksTab
+          projectId={projectId!}
+          projectName={project?.name || 'Project'}
+          artifacts={allProjectArtifacts}
+        />
+      )}
+
+      {/* TAB: CODE & ARTIFACT REVIEWS */}
+      {activeTab === 'reviews' && (
+        <ProjectReviewsTab
+          projectId={projectId!}
+          projectName={project?.name || 'Project'}
+          branches={gitBranches}
+          artifacts={allProjectArtifacts}
+        />
+      )}
+
+      {/* TAB: TEAM COLLABORATION & ROLES */}
+      {activeTab === 'team' && (
+        <ProjectTeamTab
+          projectId={projectId!}
+          projectName={project?.name || 'Project'}
         />
       )}
 

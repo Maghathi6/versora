@@ -6,6 +6,7 @@ import { IProjectRepository, projectRepository } from '../projects/project.repos
 import { IUserRepository, userRepository } from '../users/user.repository';
 import { IStorageDriver } from '../../storage/storage.interface';
 import { localStorageDriver } from '../../storage/local.storage';
+import { collaborationRepository } from '../collaboration/collaboration.repository';
 import { env } from '../../config/env';
 import { Project } from '../projects/project.types';
 import { ProjectNotFoundError, ProjectForbiddenError } from '../projects/project.errors';
@@ -146,7 +147,10 @@ export class GitService implements IGitService {
       throw new ProjectNotFoundError(projectId);
     }
     if (project.ownerId !== userId) {
-      throw new ProjectForbiddenError('You do not have permission to access Git operations in this project.');
+      const member = await collaborationRepository.findMember(projectId, userId);
+      if (!member) {
+        throw new ProjectForbiddenError('You do not have permission to access Git operations in this project.');
+      }
     }
     return project;
   }

@@ -14,6 +14,9 @@ import {
   DuplicateProjectNameError,
 } from './project.errors';
 
+import { collaborationRepository } from '../collaboration/collaboration.repository';
+import { Project } from './project.types';
+
 export interface IProjectService {
   createProject(userId: string, rawInput: unknown): Promise<ProjectResponse>;
   listProjects(userId: string): Promise<ProjectResponse[]>;
@@ -77,16 +80,23 @@ export class ProjectService implements IProjectService {
   }
 
   /**
-   * Lists all projects owned by the authenticated user.
+   * Lists all projects owned by the authenticated user or where user is a team member.
    */
   async listProjects(userId: string): Promise<ProjectResponse[]> {
-    const projects = await this.repo.findByOwnerId(userId);
-    return projects.map(toProjectResponse);
+    const ownedProjects = await this.repo.findByOwnerId(userId);
+    const memberProjectIds = await collaborationRepository.listUserProjectIds(userId);
+    const memberProjects: Project[] = [];
+    for (const pid of memberProjectIds) {
+      if (!ownedProjects.some((p) => p.id === pid)) {
+        const p = await this.repo.findById(pid);
+        if (p) memberProjects.push(p);
+      }
+    }
+    return [...ownedProjects, ...memberProjects].map(toProjectResponse);
   }
 
   /**
-   * Retrieves a single project owned by the authenticated user.
-   * Enforces strict ownership: 404 if not found, 403 if owned by another user.
+   * Retrieves a single project owned by or shared with the authenticated user.
    */
   async getProject(userId: string, rawProjectId: string): Promise<ProjectResponse> {
     const validProjectId = this.validateProjectId(rawProjectId);
@@ -97,16 +107,17 @@ export class ProjectService implements IProjectService {
     }
 
     if (project.ownerId !== userId) {
-      throw new ProjectForbiddenError('You do not have permission to view this project.');
+      const member = await collaborationRepository.findMember(validProjectId, userId);
+      if (!member) {
+        throw new ProjectForbiddenError('You do not have permission to view this project.');
+      }
     }
 
     return toProjectResponse(project);
   }
 
   /**
-   * Updates the name or description of an owned project.
-   * Enforces strict ownership: 404 if not found, 403 if owned by another user.
-   * Checks for name conflicts if the name is modified.
+   * Updates the name or description of an owned project or by an authorized admin/owner.
    */
   async updateProject(
     userId: string,
@@ -125,14 +136,17 @@ export class ProjectService implements IProjectService {
       throw new ProjectValidationError(details);
     }
 
-    // 2. Fetch existing project & verify ownership
+    // 2. Fetch existing project & verify permissions
     const project = await this.repo.findById(validProjectId);
     if (!project) {
       throw new ProjectNotFoundError(validProjectId);
     }
 
     if (project.ownerId !== userId) {
-      throw new ProjectForbiddenError('You do not have permission to modify this project.');
+      const member = await collaborationRepository.findMember(validProjectId, userId);
+      if (!member || (member.role !== 'owner' && member.role !== 'admin')) {
+        throw new ProjectForbiddenError('You do not have permission to modify this project.');
+      }
     }
 
     const data: UpdateProjectInput = parseResult.data;

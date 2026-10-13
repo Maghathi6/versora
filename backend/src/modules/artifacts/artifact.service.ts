@@ -8,6 +8,7 @@ import { IArtifactRepository, artifactRepository, ProjectStats } from './artifac
 import { IProjectRepository, projectRepository } from '../projects/project.repository';
 import { IStorageDriver } from '../../storage/storage.interface';
 import { localStorageDriver } from '../../storage/local.storage';
+import { collaborationRepository } from '../collaboration/collaboration.repository';
 import {
   Artifact,
   ArtifactResponse,
@@ -125,7 +126,10 @@ export class ArtifactService implements IArtifactService {
       throw new ProjectNotFoundError(projectId);
     }
     if (project.ownerId !== userId) {
-      throw new ProjectForbiddenError('You do not have permission to access artifacts in this project.');
+      const member = await collaborationRepository.findMember(projectId, userId);
+      if (!member) {
+        throw new ProjectForbiddenError('You do not have permission to access artifacts in this project.');
+      }
     }
     return project;
   }

@@ -1,6 +1,7 @@
 import { IArtifactRepository, artifactRepository } from '../artifacts/artifact.repository';
 import { IProjectRepository, projectRepository } from '../projects/project.repository';
 import { IGitService, gitService } from '../git/git.service';
+import { collaborationRepository } from '../collaboration/collaboration.repository';
 import {
   IIntelligenceRepository,
   intelligenceRepository,
@@ -61,7 +62,17 @@ export interface IIntelligenceService {
     projectId: string,
     actorId: string,
     eventType: string,
-    entityType: 'artifact' | 'git' | 'github' | 'relationship',
+    entityType:
+      | 'artifact'
+      | 'git'
+      | 'github'
+      | 'relationship'
+      | 'task'
+      | 'review'
+      | 'comment'
+      | 'member'
+      | 'collaboration'
+      | string,
     entityId: string | null,
     summary: string,
     metadata?: Record<string, unknown>
@@ -87,7 +98,10 @@ export class IntelligenceService implements IIntelligenceService {
       throw new ProjectNotFoundError(projectId);
     }
     if (project.ownerId !== userId) {
-      throw new ProjectForbiddenError('You do not have permission to access this project.');
+      const member = await collaborationRepository.findMember(projectId, userId);
+      if (!member) {
+        throw new ProjectForbiddenError('You do not have permission to access this project.');
+      }
     }
   }
 
@@ -561,7 +575,17 @@ export class IntelligenceService implements IIntelligenceService {
     projectId: string,
     actorId: string,
     eventType: string,
-    entityType: 'artifact' | 'git' | 'github' | 'relationship',
+    entityType:
+      | 'artifact'
+      | 'git'
+      | 'github'
+      | 'relationship'
+      | 'task'
+      | 'review'
+      | 'comment'
+      | 'member'
+      | 'collaboration'
+      | string,
     entityId: string | null,
     summary: string,
     metadata?: Record<string, unknown>
