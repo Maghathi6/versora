@@ -26,6 +26,7 @@ import {
   sendMessageSchema,
   quickActionSchema,
 } from './assistant.schemas';
+import { env } from '../../config/env';
 import {
   AssistantValidationError,
   ConversationNotFoundError,
@@ -233,10 +234,14 @@ export class AssistantService implements IAssistantService {
     ];
 
     // 5. Generate grounded response from provider
+    const maxTokens = provider.name === 'ollama'
+      ? Math.min(env.AI_MAX_TOKENS || 750, 750)
+      : (env.AI_MAX_TOKENS || 2000);
+
     const aiResult = await provider.generateChatResponse({
       messages: chatMessages,
-      temperature: 0.2,
-      maxTokens: 2000,
+      temperature: env.AI_TEMPERATURE ?? 0.2,
+      maxTokens,
     });
 
     // 6. Extract and validate sources against retrieved context
@@ -323,10 +328,14 @@ export class AssistantService implements IAssistantService {
       { role: 'user', content: queryText },
     ];
 
+    const maxTokens = provider.name === 'ollama'
+      ? Math.min(env.AI_MAX_TOKENS || 750, 750)
+      : (env.AI_MAX_TOKENS || 2000);
+
     const aiResult = await provider.generateChatResponse({
       messages: chatMessages,
-      temperature: 0.2,
-      maxTokens: 2000,
+      temperature: env.AI_TEMPERATURE ?? 0.2,
+      maxTokens,
     });
 
     const { sources, uncertaintyNote } = this.evidenceExtractor.extractAndValidateSources(
@@ -367,6 +376,9 @@ Explain what information is missing. Never present guesses as established facts.
 
 4. READ-ONLY SCOPE:
 You are strictly an analytical and advisory assistant. You do not modify files, merge branches, create tasks, or alter permissions.
+
+5. CONCISENESS & REASONING:
+Be concise, clear, and direct. Keep internal thinking minimal and immediately output the final response for the user.
 
 <project_context>
 ${projectContextText}

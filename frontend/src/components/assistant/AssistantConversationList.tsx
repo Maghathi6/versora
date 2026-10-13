@@ -7,6 +7,8 @@ import {
   IconEdit,
   IconCheck,
   IconClose,
+  IconRefreshCw,
+  IconAlertCircle,
 } from '../common/Icons';
 
 interface AssistantConversationListProps {
@@ -17,6 +19,10 @@ interface AssistantConversationListProps {
   onRenameConversation: (conversationId: string, newTitle: string) => Promise<void>;
   onDeleteConversation: (conversationId: string) => Promise<void>;
   isLoading?: boolean;
+  error?: string | null;
+  onRetry?: () => void;
+  isOpenMobile?: boolean;
+  onCloseMobile?: () => void;
 }
 
 export const AssistantConversationList: React.FC<AssistantConversationListProps> = ({
@@ -27,6 +33,10 @@ export const AssistantConversationList: React.FC<AssistantConversationListProps>
   onRenameConversation,
   onDeleteConversation,
   isLoading = false,
+  error = null,
+  onRetry,
+  isOpenMobile = false,
+  onCloseMobile,
 }) => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
@@ -60,7 +70,7 @@ export const AssistantConversationList: React.FC<AssistantConversationListProps>
 
   const handleDelete = async (convId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!window.confirm('Are you sure you want to delete this conversation? This action cannot be undone.')) {
+    if (!window.confirm('Delete this conversation and its messages? This action cannot be undone.')) {
       return;
     }
 
@@ -73,127 +83,168 @@ export const AssistantConversationList: React.FC<AssistantConversationListProps>
   };
 
   const formatDate = (dateStr: string) => {
-    const d = new Date(dateStr);
-    const now = new Date();
-    const diffDays = Math.floor((now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
-    if (diffDays === 0) return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    if (diffDays === 1) return 'Yesterday';
-    if (diffDays < 7) return `${diffDays}d ago`;
-    return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    try {
+      const d = new Date(dateStr);
+      const now = new Date();
+      const diffMs = now.getTime() - d.getTime();
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+      if (diffDays === 0) {
+        return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      }
+      if (diffDays === 1) return 'Yesterday';
+      if (diffDays < 7) return `${diffDays}d ago`;
+      return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    } catch {
+      return '';
+    }
   };
 
   return (
-    <div className="flex flex-col h-full bg-surface-900/60 border-r border-surface-800">
-      {/* Header with New Chat button */}
-      <div className="p-3.5 border-b border-surface-800 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <IconMessageSquare size={18} className="text-primary-400" />
-          <span className="font-semibold text-sm text-surface-200">Conversations</span>
-          <span className="text-xs px-1.5 py-0.5 rounded-full bg-surface-800 text-surface-400 font-mono">
-            {conversations.length}
-          </span>
-        </div>
-        <button
-          onClick={onNewConversation}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-600 hover:bg-primary-500 text-white text-xs font-medium shadow-sm transition-colors"
-          title="Start a new conversation"
-        >
-          <IconPlus size={14} />
-          <span>New Chat</span>
-        </button>
-      </div>
-
-      {/* Conversations List */}
-      <div className="flex-1 overflow-y-auto p-2 space-y-1">
-        {isLoading ? (
-          <div className="p-4 text-center text-xs text-surface-400">Loading conversations...</div>
-        ) : conversations.length === 0 ? (
-          <div className="p-6 text-center text-xs text-surface-400">
-            <p className="font-medium text-surface-300 mb-1">No chats yet</p>
-            <p>Start a new conversation to ask questions grounded in this project.</p>
+    <>
+      {isOpenMobile && onCloseMobile && (
+        <div className="assistant-sidebar-backdrop" onClick={onCloseMobile} />
+      )}
+      <aside className={`assistant-sidebar ${isOpenMobile ? 'open' : ''}`}>
+        {/* Sidebar Header */}
+        <div className="assistant-sidebar-header">
+          <div className="assistant-sidebar-title">
+            <IconMessageSquare size={17} style={{ color: 'var(--brand-primary-light)' }} />
+            <span>Chats</span>
+            <span className="assistant-count-pill">{conversations.length}</span>
           </div>
-        ) : (
-          conversations.map((conv) => {
-            const isActive = conv.id === activeConversationId;
-            const isEditing = conv.id === editingId;
-            const isDeleting = conv.id === deletingId;
 
-            return (
-              <div
-                key={conv.id}
-                onClick={() => !isEditing && onSelectConversation(conv.id)}
-                className={`group relative rounded-xl px-3 py-2.5 text-xs transition-all cursor-pointer flex items-center justify-between gap-2 border ${
-                  isActive
-                    ? 'bg-primary-500/10 border-primary-500/40 text-surface-100 shadow-sm'
-                    : 'bg-surface-850/40 hover:bg-surface-800/80 border-transparent text-surface-300 hover:text-surface-100'
-                } ${isDeleting ? 'opacity-40 pointer-events-none' : ''}`}
-              >
-                {isEditing ? (
-                  <form
-                    onSubmit={(e) => handleSaveRename(conv.id, e)}
-                    className="flex items-center gap-1.5 w-full"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <input
-                      type="text"
-                      value={editTitle}
-                      onChange={(e) => setEditTitle(e.target.value)}
-                      className="flex-1 px-2 py-1 rounded bg-surface-900 border border-primary-500 text-xs text-surface-100 focus:outline-none"
-                      autoFocus
-                      disabled={isSubmitting}
-                    />
-                    <button
-                      type="submit"
-                      disabled={isSubmitting || !editTitle.trim()}
-                      className="p-1 rounded bg-primary-600 hover:bg-primary-500 text-white transition-colors"
-                      title="Save"
-                    >
-                      <IconCheck size={13} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={cancelEditing}
-                      className="p-1 rounded hover:bg-surface-700 text-surface-400 hover:text-surface-200 transition-colors"
-                      title="Cancel"
-                    >
-                      <IconClose size={13} />
-                    </button>
-                  </form>
-                ) : (
-                  <>
-                    <div className="flex-1 min-w-0 pr-2">
-                      <div className="font-medium truncate text-surface-200 group-hover:text-white">
-                        {conv.title}
-                      </div>
-                      <div className="text-[10px] text-surface-500 mt-0.5">
-                        {formatDate(conv.updatedAt)}
-                      </div>
-                    </div>
+          <button
+            type="button"
+            onClick={onNewConversation}
+            className="btn-new-chat"
+            title="Start new grounded conversation"
+          >
+            <IconPlus size={14} />
+            <span>New Chat</span>
+          </button>
+        </div>
 
-                    {/* Actions on hover */}
-                    <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 flex-shrink-0">
-                      <button
-                        onClick={(e) => startEditing(conv, e)}
-                        className="p-1 rounded hover:bg-surface-700 text-surface-400 hover:text-surface-200 transition-colors"
-                        title="Rename conversation"
-                      >
-                        <IconEdit size={13} />
-                      </button>
-                      <button
-                        onClick={(e) => handleDelete(conv.id, e)}
-                        className="p-1 rounded hover:bg-red-500/20 text-surface-400 hover:text-red-400 transition-colors"
-                        title="Delete conversation"
-                      >
-                        <IconTrash size={13} />
-                      </button>
-                    </div>
-                  </>
-                )}
+        {/* Sidebar Body */}
+        <div className="assistant-conversation-list">
+          {isLoading ? (
+            <div className="sidebar-state-box">
+              <IconRefreshCw size={22} className="animate-spin" style={{ color: 'var(--brand-primary-light)' }} />
+              <span>Loading conversations...</span>
+            </div>
+          ) : error ? (
+            <div className="sidebar-state-box error">
+              <IconAlertCircle size={22} />
+              <span>{error}</span>
+              {onRetry && (
+                <button type="button" onClick={onRetry} className="btn-retry-sm">
+                  Retry Loading
+                </button>
+              )}
+            </div>
+          ) : conversations.length === 0 ? (
+            <div className="sidebar-state-box">
+              <IconMessageSquare size={24} style={{ opacity: 0.4 }} />
+              <div>
+                <strong style={{ color: 'var(--text-primary)', display: 'block', marginBottom: '0.25rem' }}>
+                  No conversations yet
+                </strong>
+                <span>Start a new chat to ask questions grounded in your project's repository.</span>
               </div>
-            );
-          })
-        )}
-      </div>
-    </div>
+              <button
+                type="button"
+                onClick={onNewConversation}
+                className="btn-retry-sm"
+                style={{ marginTop: '0.25rem' }}
+              >
+                + Create First Chat
+              </button>
+            </div>
+          ) : (
+            conversations.map((conv) => {
+              const isActive = conv.id === activeConversationId;
+              const isEditing = conv.id === editingId;
+              const isDeleting = conv.id === deletingId;
+
+              return (
+                <div
+                  key={conv.id}
+                  onClick={() => {
+                    if (!isEditing) {
+                      onSelectConversation(conv.id);
+                      if (onCloseMobile) onCloseMobile();
+                    }
+                  }}
+                  className={`assistant-conversation-item ${isActive ? 'active' : ''}`}
+                  style={{ opacity: isDeleting ? 0.4 : 1 }}
+                >
+                  {isEditing ? (
+                    <form
+                      onSubmit={(e) => handleSaveRename(conv.id, e)}
+                      className="conv-rename-form"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <input
+                        type="text"
+                        value={editTitle}
+                        onChange={(e) => setEditTitle(e.target.value)}
+                        className="conv-rename-input"
+                        autoFocus
+                        disabled={isSubmitting}
+                      />
+                      <button
+                        type="submit"
+                        disabled={isSubmitting || !editTitle.trim()}
+                        className="btn-icon-subtle"
+                        style={{ color: 'var(--status-success)' }}
+                        title="Save rename"
+                      >
+                        <IconCheck size={14} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={cancelEditing}
+                        className="btn-icon-subtle"
+                        title="Cancel"
+                      >
+                        <IconClose size={14} />
+                      </button>
+                    </form>
+                  ) : (
+                    <>
+                      <div className="conv-info">
+                        <div className="conv-title" title={conv.title}>
+                          {conv.title}
+                        </div>
+                        <div className="conv-date">{formatDate(conv.updatedAt)}</div>
+                      </div>
+
+                      <div className="conv-actions">
+                        <button
+                          type="button"
+                          onClick={(e) => startEditing(conv, e)}
+                          className="btn-icon-subtle"
+                          title="Rename conversation"
+                        >
+                          <IconEdit size={13} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => handleDelete(conv.id, e)}
+                          className="btn-icon-subtle danger"
+                          title="Delete conversation"
+                        >
+                          <IconTrash size={13} />
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+      </aside>
+    </>
   );
 };

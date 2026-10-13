@@ -16,13 +16,28 @@ export class AIProviderFactory {
     const providerType = env.AI_PROVIDER?.toLowerCase() || 'mock';
 
     switch (providerType) {
-      case 'openai':
       case 'ollama':
+        return new OpenAIProvider({
+          providerName: 'ollama',
+          apiKey: env.AI_API_KEY,
+          baseUrl: env.AI_BASE_URL || 'http://localhost:11434/v1',
+          model: env.AI_MODEL || 'qwen3.5:4b',
+        });
+
+      case 'openai':
+        return new OpenAIProvider({
+          providerName: 'openai',
+          apiKey: env.AI_API_KEY,
+          baseUrl: env.AI_BASE_URL,
+          model: env.AI_MODEL || 'gpt-4o-mini',
+        });
+
       case 'custom':
         return new OpenAIProvider({
+          providerName: 'custom',
           apiKey: env.AI_API_KEY,
-          baseUrl: env.AI_BASE_URL || (providerType === 'ollama' ? 'http://localhost:11434/v1' : undefined),
-          model: env.AI_MODEL || (providerType === 'ollama' ? 'llama3' : 'gpt-4o-mini'),
+          baseUrl: env.AI_BASE_URL,
+          model: env.AI_MODEL || 'custom-model',
         });
 
       case 'anthropic':

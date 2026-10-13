@@ -12,6 +12,7 @@ import {
   collaborationGlobalRouter,
 } from '../modules/collaboration/collaboration.routes';
 import assistantRoutes from '../modules/assistant/assistant.routes';
+import workflowRoutes from '../modules/workflow/workflow.routes';
 
 const rootRouter = Router();
 
@@ -29,6 +30,7 @@ v1Router.use('/projects', projectGitHubRouter);
 v1Router.use('/projects', intelligenceRoutes);
 v1Router.use('/projects', projectCollaborationRouter);
 v1Router.use('/projects', assistantRoutes);
+v1Router.use('/projects', workflowRoutes);
 v1Router.use(collaborationGlobalRouter);
 v1Router.use('/github/oauth', githubOAuthRouter);
 v1Router.use('/github', githubOAuthRouter);
@@ -44,6 +46,7 @@ rootRouter.use('/projects', projectGitHubRouter);
 rootRouter.use('/projects', intelligenceRoutes);
 rootRouter.use('/projects', projectCollaborationRouter);
 rootRouter.use('/projects', assistantRoutes);
+rootRouter.use('/projects', workflowRoutes);
 rootRouter.use(collaborationGlobalRouter);
 rootRouter.use('/github/oauth', githubOAuthRouter);
 rootRouter.use('/github', githubOAuthRouter);

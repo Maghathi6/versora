@@ -1,4 +1,5 @@
 @import './design-tokens.css';
+@import './assistant.css';
 
 /* Universal Reset & Base Styles */
 *, *::before, *::after {

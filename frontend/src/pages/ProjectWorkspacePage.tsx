@@ -83,6 +83,9 @@ import { ProjectTasksTab } from '../components/collaboration/ProjectTasksTab';
 import { ProjectReviewsTab } from '../components/collaboration/ProjectReviewsTab';
 import { ArtifactCommentsPanel } from '../components/collaboration/ArtifactCommentsPanel';
 import { ProjectAssistantTab } from '../components/assistant/ProjectAssistantTab';
+import { ProjectOverviewDashboard } from '../components/workflow/ProjectOverviewDashboard';
+import { OmniSearchModal } from '../components/workflow/OmniSearchModal';
+import { ChangeWorkflowPanel } from '../components/workflow/ChangeWorkflowPanel';
 import { QuickActionType } from '../types/assistant';
 
 type WorkspaceTab = 'overview' | 'files' | 'changes' | 'history' | 'tasks' | 'reviews' | 'team' | 'activity' | 'assistant';
@@ -104,6 +107,7 @@ export const ProjectWorkspacePage: React.FC = () => {
     targetId?: string;
   } | null>(null);
   const [isCommentsOpen, setIsCommentsOpen] = useState<boolean>(false);
+  const [isOmniSearchOpen, setIsOmniSearchOpen] = useState<boolean>(false);
   const currentFolderId = searchParams.get('folder') || null;
 
   // Project & Data State
@@ -649,24 +653,6 @@ export const ProjectWorkspacePage: React.FC = () => {
     setActiveTab('files');
     handleOpenFile(target);
   };
-
-  // Compute Quick Stats
-  const stats = useMemo(() => {
-    let filesCount = 0;
-    let foldersCount = 0;
-    let totalBytes = 0;
-
-    artifacts.forEach((a) => {
-      if (a.type === 'folder') {
-        foldersCount++;
-      } else {
-        filesCount++;
-        totalBytes += a.sizeBytes;
-      }
-    });
-
-    return { filesCount, foldersCount, totalBytes };
-  }, [artifacts]);
 
   // Open file in editor / preview / inspector (with unsaved changes guard)
   const handleOpenFile = async (file: ArtifactItem) => {
@@ -1735,124 +1721,39 @@ export const ProjectWorkspacePage: React.FC = () => {
           <span>AI Assistant</span>
           <Badge variant="brand">Grounded</Badge>
         </button>
+
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center' }}>
+          <button
+            type="button"
+            onClick={() => setIsOmniSearchOpen(true)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              padding: '0.35rem 0.65rem',
+              background: 'var(--bg-secondary)',
+              border: '1px solid var(--border-subtle)',
+              borderRadius: '6px',
+              color: 'var(--text-secondary)',
+              fontSize: '0.8rem',
+              cursor: 'pointer',
+            }}
+          >
+            <span>🔍 Search Project</span>
+            <kbd style={{ fontSize: '0.7rem', padding: '0.1rem 0.35rem', background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: '3px' }}>Ctrl K</kbd>
+          </button>
+        </div>
       </div>
 
       {/* TAB 1: OVERVIEW */}
       {activeTab === 'overview' && (
-        <div>
-          {/* Quick Stats Grid */}
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-              gap: '1rem',
-              marginBottom: '2rem',
-            }}
-          >
-            <div className="card" style={{ padding: '1.25rem' }}>
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                Files in Folder
-              </span>
-              <div style={{ fontSize: '1.75rem', fontWeight: 800, marginTop: '0.35rem', color: 'var(--text-primary)' }}>
-                {stats.filesCount}
-              </div>
-            </div>
-
-            <div className="card" style={{ padding: '1.25rem' }}>
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                Folders
-              </span>
-              <div style={{ fontSize: '1.75rem', fontWeight: 800, marginTop: '0.35rem', color: 'var(--text-primary)' }}>
-                {stats.foldersCount}
-              </div>
-            </div>
-
-            <div className="card" style={{ padding: '1.25rem' }}>
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                Storage Used
-              </span>
-              <div style={{ fontSize: '1.75rem', fontWeight: 800, marginTop: '0.35rem', color: 'var(--brand-trace-light)' }}>
-                {formatBytes(stats.totalBytes)}
-              </div>
-            </div>
-
-            <div className="card" style={{ padding: '1.25rem' }}>
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                Active Mode
-              </span>
-              <div style={{ fontSize: '1.3rem', fontWeight: 700, marginTop: '0.6rem', color: 'var(--brand-primary-light)' }}>
-                {mode === 'beginner' ? '🌱 Beginner' : '⚡ Advanced'}
-              </div>
-            </div>
-          </div>
-
-          {/* Project Metadata Card */}
-          <div className="card" style={{ marginBottom: '2rem' }}>
-            <div className="card-header">
-              <div className="card-title">
-                <IconProjects size={18} />
-                <span>Project Workspace Specification</span>
-              </div>
-              <Badge variant="brand">PostgreSQL Backed</Badge>
-            </div>
-
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-                gap: '1.25rem',
-                fontSize: '0.88rem',
-              }}
-            >
-              <div>
-                <span style={{ color: 'var(--text-muted)', display: 'block', marginBottom: '0.25rem' }}>
-                  Project Name
-                </span>
-                <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{project.name}</span>
-              </div>
-
-              <div>
-                <span style={{ color: 'var(--text-muted)', display: 'block', marginBottom: '0.25rem' }}>
-                  Project UUID
-                </span>
-                <code style={{ color: 'var(--brand-trace-light)', fontSize: '0.82rem' }}>{project.id}</code>
-              </div>
-
-              <div>
-                <span style={{ color: 'var(--text-muted)', display: 'block', marginBottom: '0.25rem' }}>
-                  Owner ID
-                </span>
-                <code style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>{project.ownerId}</code>
-              </div>
-
-              <div>
-                <span style={{ color: 'var(--text-muted)', display: 'block', marginBottom: '0.25rem' }}>
-                  Created At
-                </span>
-                <span>{new Date(project.createdAt).toLocaleString()}</span>
-              </div>
-            </div>
-
-            <div
-              style={{
-                marginTop: '1.5rem',
-                padding: '1rem',
-                background: 'rgba(99, 102, 241, 0.08)',
-                border: '1px solid rgba(99, 102, 241, 0.25)',
-                borderRadius: 'var(--radius-md)',
-                fontSize: '0.85rem',
-                lineHeight: 1.5,
-                color: 'var(--text-secondary)',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--brand-primary-light)', fontWeight: 600, marginBottom: '0.35rem' }}>
-                <IconSparkles size={16} />
-                <span>Versora Engine Roadmap</span>
-              </div>
-              Files uploaded to this workspace are saved on server storage with metadata persisted in PostgreSQL. In upcoming units, this project will attach to an authentic, bare Git repository, enabling change commits, version tags, and cross-artifact impact analysis.
-            </div>
-          </div>
-        </div>
+        <ProjectOverviewDashboard
+          projectId={projectId!}
+          onNavigateTab={handleSwitchTab}
+          onInspectArtifact={(artId) => handleNavigateToRelatedArtifact(artId)}
+          onOpenCreateReview={() => handleSwitchTab('reviews')}
+          onOpenCreateTask={() => handleSwitchTab('tasks')}
+        />
       )}
 
       {/* TAB 2: FILES & CODE EDITOR */}
@@ -2997,6 +2898,17 @@ export const ProjectWorkspacePage: React.FC = () => {
       {/* TAB 3: CHANGES & SAVE VERSION */}
       {activeTab === 'changes' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          <ChangeWorkflowPanel
+            projectId={projectId!}
+            changes={[
+              ...(gitStatus?.unstaged || []),
+              ...(gitStatus?.staged || []),
+              ...(gitStatus?.untracked || []),
+            ]}
+            onCreateReview={(_targetRef, _title) => handleSwitchTab('reviews')}
+            onCreateTask={(_linkedPath, _title) => handleSwitchTab('tasks')}
+            onSelectFile={handleOpenFileFromGit}
+          />
           <ImpactAnalysisCard
             projectId={projectId!}
             hasWorkingTreeChanges={(gitStatus?.totalChangesCount || 0) > 0}
@@ -3663,6 +3575,15 @@ export const ProjectWorkspacePage: React.FC = () => {
           onNavigateToArtifact={handleNavigateToRelatedArtifact}
         />
       )}
+
+      {/* OMNI PROJECT SEARCH MODAL (CTRL+K) */}
+      <OmniSearchModal
+        isOpen={isOmniSearchOpen}
+        projectId={projectId!}
+        onClose={() => setIsOmniSearchOpen(false)}
+        onSelectArtifact={handleNavigateToRelatedArtifact}
+        onNavigateTab={(tab) => handleSwitchTab(tab)}
+      />
     </div>
   );
 };

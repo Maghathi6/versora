@@ -44,6 +44,20 @@ import {
 import { ProjectForbiddenError, ProjectNotFoundError } from '../projects/project.errors';
 import { GitRepositoryNotInitializedError } from '../git/git.errors';
 
+/**
+ * Strips sensitive tokens and authenticated URL credentials from Git error strings and logs.
+ */
+export function redactGitHubCredentials(text: string): string {
+  if (!text) return '';
+  return text
+    .replace(/(https?:\/\/)[^@/\s]+@/g, '$1***@')
+    .replace(/x-access-token:[^@/\s]+/gi, 'x-access-token:***')
+    .replace(/ghp_[a-zA-Z0-9]{36}/g, 'ghp_***')
+    .replace(/github_pat_[a-zA-Z0-9_]{50,}/g, 'github_pat_***')
+    .replace(/authorization:\s*basic\s+[a-zA-Z0-9+=/]+/gi, 'Authorization: Basic ***')
+    .replace(/authorization:\s*bearer\s+[a-zA-Z0-9_.-]+/gi, 'Authorization: Bearer ***');
+}
+
 export class GitHubService {
   constructor(
     private readonly githubRepo: IGitHubRepository = githubRepository,
@@ -126,7 +140,8 @@ export class GitHubService {
     branch?: string
   ): never {
     const err = rawError as { stderr?: string; stdout?: string; message?: string };
-    const errText = (err.stderr || err.stdout || err.message || '').trim();
+    const rawText = (err.stderr || err.stdout || err.message || '').trim();
+    const errText = redactGitHubCredentials(rawText);
 
     if (
       errText.includes('could not read Username') ||
@@ -968,7 +983,8 @@ export class GitHubService {
       });
 
       if (mergeRes.exitCode !== 0) {
-        const errText = mergeRes.stderr || mergeRes.stdout;
+        const rawErrText = mergeRes.stderr || mergeRes.stdout;
+        const errText = redactGitHubCredentials(rawErrText);
         await intelligenceRepository
           .recordActivity({
             projectId,

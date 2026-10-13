@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   AssistantConversation,
   AssistantMessage,
@@ -29,146 +30,135 @@ export const ProjectAssistantTab: React.FC<ProjectAssistantTabProps> = ({
   onNavigateToReview,
   initialAction,
 }) => {
-  const [conversations, setConversations] = useState<AssistantConversation[]>([]);
+  const queryClient = useQueryClient();
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
-  const [currentConversation, setCurrentConversation] = useState<AssistantConversation | null>(null);
-  const [messages, setMessages] = useState<AssistantMessage[]>([]);
-  const [config, setConfig] = useState<AssistantConfigResponse | null>(null);
-
-  const [isLoadingConversations, setIsLoadingConversations] = useState(true);
-  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [isSending, setIsSending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [chatError, setChatError] = useState<string | null>(null);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [optimisticMessages, setOptimisticMessages] = useState<AssistantMessage[]>([]);
 
-  // Fetch configuration
+  // 1. Fetch AI Configuration using TanStack Query
+  const { data: config = null } = useQuery<AssistantConfigResponse>({
+    queryKey: ['assistant-config', projectId],
+    queryFn: () => assistantService.getConfig(projectId),
+    enabled: Boolean(projectId),
+    staleTime: 60000,
+  });
+
+  // 2. Fetch Conversations using TanStack Query
+  const {
+    data: conversations = [],
+    isLoading: isLoadingConversations,
+    error: rawConversationsError,
+    refetch: refetchConversations,
+  } = useQuery<AssistantConversation[]>({
+    queryKey: ['assistant-conversations', projectId],
+    queryFn: () => assistantService.listConversations(projectId),
+    enabled: Boolean(projectId),
+    staleTime: 15000,
+  });
+
+  // Auto-select first conversation if none selected
   useEffect(() => {
-    let mounted = true;
-    assistantService
-      .getConfig(projectId)
-      .then((cfg) => {
-        if (mounted) setConfig(cfg);
-      })
-      .catch((err) => {
-        console.warn('Could not load AI configuration:', err);
-      });
-    return () => {
-      mounted = false;
-    };
-  }, [projectId]);
-
-  // Load conversations list
-  const loadConversations = useCallback(async () => {
-    try {
-      setIsLoadingConversations(true);
-      const list = await assistantService.listConversations(projectId);
-      setConversations(list);
-      if (list.length > 0 && !activeConversationId) {
-        setActiveConversationId(list[0].id);
-      }
-    } catch (err: any) {
-      console.error('Failed to load conversations:', err);
-      setError(err?.response?.data?.error?.message || 'Failed to load conversations.');
-    } finally {
-      setIsLoadingConversations(false);
+    if (conversations.length > 0 && !activeConversationId) {
+      setActiveConversationId(conversations[0].id);
     }
-  }, [projectId, activeConversationId]);
+  }, [conversations, activeConversationId]);
 
-  useEffect(() => {
-    loadConversations();
-  }, [loadConversations]);
+  // 3. Fetch Active Conversation Detail & Messages
+  const {
+    data: conversationDetail,
+    isLoading: isLoadingMessages,
+    error: rawMessagesError,
+    refetch: refetchMessages,
+  } = useQuery({
+    queryKey: ['assistant-conversation', projectId, activeConversationId],
+    queryFn: () => assistantService.getConversation(projectId, activeConversationId!),
+    enabled: Boolean(projectId && activeConversationId),
+    staleTime: 10000,
+  });
 
-  // Load active conversation messages
-  useEffect(() => {
-    if (!activeConversationId) {
-      setCurrentConversation(null);
-      setMessages([]);
-      return;
-    }
+  // Combine persisted messages with any in-flight optimistic messages
+  const baseMessages = conversationDetail?.messages || [];
+  const currentConversation = conversationDetail?.conversation || conversations.find((c) => c.id === activeConversationId) || null;
+  const messages = [...baseMessages, ...optimisticMessages];
 
-    let mounted = true;
-    setIsLoadingMessages(true);
-    setError(null);
+  // Format clean errors
+  const conversationsError = rawConversationsError
+    ? (rawConversationsError as any)?.message || 'Failed to load conversations.'
+    : null;
 
-    assistantService
-      .getConversation(projectId, activeConversationId)
-      .then((res) => {
-        if (!mounted) return;
-        setCurrentConversation(res.conversation);
-        setMessages(res.messages);
-      })
-      .catch((err: any) => {
-        if (!mounted) return;
-        console.error('Failed to load conversation details:', err);
-        setError(err?.response?.data?.error?.message || 'Failed to load conversation.');
-      })
-      .finally(() => {
-        if (mounted) setIsLoadingMessages(false);
-      });
-
-    return () => {
-      mounted = false;
-    };
-  }, [projectId, activeConversationId]);
+  const activeError = chatError || (rawMessagesError ? (rawMessagesError as any)?.message || 'Failed to load conversation.' : null);
 
   // Create new conversation
   const handleNewConversation = async () => {
     try {
-      setError(null);
+      setChatError(null);
       const newConv = await assistantService.createConversation(projectId, 'New Conversation');
-      setConversations((prev) => [newConv, ...prev]);
+      queryClient.setQueryData<AssistantConversation[]>(
+        ['assistant-conversations', projectId],
+        (prev = []) => [newConv, ...prev]
+      );
       setActiveConversationId(newConv.id);
+      setIsMobileSidebarOpen(false);
     } catch (err: any) {
-      console.error('Failed to create conversation:', err);
-      setError(err?.response?.data?.error?.message || 'Failed to create conversation.');
+      setChatError(err?.message || 'Failed to create conversation.');
     }
   };
 
   // Rename conversation
   const handleRenameConversation = async (conversationId: string, newTitle: string) => {
     try {
-      setError(null);
+      setChatError(null);
       const updated = await assistantService.renameConversation(projectId, conversationId, newTitle);
-      setConversations((prev) =>
-        prev.map((c) => (c.id === conversationId ? { ...c, title: updated.title } : c))
+      queryClient.setQueryData<AssistantConversation[]>(
+        ['assistant-conversations', projectId],
+        (prev = []) =>
+          prev.map((c) => (c.id === conversationId ? { ...c, title: updated.title } : c))
       );
-      if (currentConversation?.id === conversationId) {
-        setCurrentConversation((prev) => (prev ? { ...prev, title: updated.title } : null));
-      }
+      queryClient.invalidateQueries({
+        queryKey: ['assistant-conversation', projectId, conversationId],
+      });
     } catch (err: any) {
-      console.error('Failed to rename conversation:', err);
-      setError(err?.response?.data?.error?.message || 'Failed to rename conversation.');
+      setChatError(err?.message || 'Failed to rename conversation.');
     }
   };
 
   // Delete conversation
   const handleDeleteConversation = async (conversationId: string) => {
     try {
-      setError(null);
+      setChatError(null);
       await assistantService.deleteConversation(projectId, conversationId);
-      const remaining = conversations.filter((c) => c.id !== conversationId);
-      setConversations(remaining);
+      queryClient.setQueryData<AssistantConversation[]>(
+        ['assistant-conversations', projectId],
+        (prev = []) => prev.filter((c) => c.id !== conversationId)
+      );
+
       if (activeConversationId === conversationId) {
+        const remaining = conversations.filter((c) => c.id !== conversationId);
         setActiveConversationId(remaining.length > 0 ? remaining[0].id : null);
       }
     } catch (err: any) {
-      console.error('Failed to delete conversation:', err);
-      setError(err?.response?.data?.error?.message || 'Failed to delete conversation.');
+      setChatError(err?.message || 'Failed to delete conversation.');
     }
   };
 
   // Send message
   const handleSendMessage = async (content: string) => {
     try {
-      setError(null);
+      setChatError(null);
       setIsSending(true);
 
       let targetConvId = activeConversationId;
 
       // If no active conversation exists, create one with the user's first query
       if (!targetConvId) {
-        const titleSnippet = content.substring(0, 40) + (content.length > 40 ? '...' : '');
+        const titleSnippet = content.substring(0, 36) + (content.length > 36 ? '...' : '');
         const newConv = await assistantService.createConversation(projectId, titleSnippet);
-        setConversations((prev) => [newConv, ...prev]);
+        queryClient.setQueryData<AssistantConversation[]>(
+          ['assistant-conversations', projectId],
+          (prev = []) => [newConv, ...prev]
+        );
         setActiveConversationId(newConv.id);
         targetConvId = newConv.id;
       }
@@ -182,34 +172,41 @@ export const ProjectAssistantTab: React.FC<ProjectAssistantTabProps> = ({
         sources: [],
         createdAt: new Date().toISOString(),
       };
-      setMessages((prev) => [...prev, tempUserMsg]);
+      setOptimisticMessages([tempUserMsg]);
 
       // Call API
       const res = await assistantService.sendMessage(projectId, targetConvId, content);
 
-      // Replace with genuine stored messages
-      setMessages((prev) => [
-        ...prev.filter((m) => m.id !== tempUserMsg.id),
-        res.userMessage,
-        res.assistantMessage,
-      ]);
+      // Invalidate queries so TanStack Query refreshes genuine persisted messages
+      queryClient.setQueryData(
+        ['assistant-conversation', projectId, targetConvId],
+        (prevData: any) => {
+          if (!prevData) return prevData;
+          return {
+            ...prevData,
+            messages: [...prevData.messages, res.userMessage, res.assistantMessage],
+          };
+        }
+      );
 
-      // Update conversation in list (e.g. timestamp or title)
-      setConversations((prev) =>
-        prev.map((c) =>
-          c.id === targetConvId
-            ? { ...c, updatedAt: res.assistantMessage.createdAt }
-            : c
-        )
+      // Update conversation in list (timestamp or title)
+      queryClient.setQueryData<AssistantConversation[]>(
+        ['assistant-conversations', projectId],
+        (prev = []) =>
+          prev.map((c) =>
+            c.id === targetConvId
+              ? { ...c, updatedAt: res.assistantMessage.createdAt }
+              : c
+          )
       );
     } catch (err: any) {
-      console.error('Failed to send message:', err);
       const errMsg =
-        err?.response?.data?.error?.message ||
         err?.message ||
         'Failed to generate assistant response. Please check your provider configuration.';
-      setError(errMsg);
+      setChatError(errMsg);
+      throw err;
     } finally {
+      setOptimisticMessages([]);
       setIsSending(false);
     }
   };
@@ -217,7 +214,7 @@ export const ProjectAssistantTab: React.FC<ProjectAssistantTabProps> = ({
   // Trigger quick action
   const handleTriggerQuickAction = async (action: QuickActionType, targetId?: string) => {
     try {
-      setError(null);
+      setChatError(null);
       setIsSending(true);
 
       let targetConvId = activeConversationId;
@@ -233,7 +230,10 @@ export const ProjectAssistantTab: React.FC<ProjectAssistantTabProps> = ({
           projectId,
           actionTitleMap[action] || 'Quick Action'
         );
-        setConversations((prev) => [newConv, ...prev]);
+        queryClient.setQueryData<AssistantConversation[]>(
+          ['assistant-conversations', projectId],
+          (prev = []) => [newConv, ...prev]
+        );
         setActiveConversationId(newConv.id);
         targetConvId = newConv.id;
       }
@@ -252,7 +252,6 @@ export const ProjectAssistantTab: React.FC<ProjectAssistantTabProps> = ({
         'project-summary': 'Project overview and summary',
       };
 
-      // Append assistant response to current conversation
       const userMsg: AssistantMessage = {
         id: `user-qa-${Date.now()}`,
         conversationId: targetConvId,
@@ -272,20 +271,27 @@ export const ProjectAssistantTab: React.FC<ProjectAssistantTabProps> = ({
         createdAt: new Date().toISOString(),
       };
 
-      setMessages((prev) => [...prev, userMsg, assistantMsg]);
+      queryClient.setQueryData(
+        ['assistant-conversation', projectId, targetConvId],
+        (prevData: any) => {
+          if (!prevData) return prevData;
+          return {
+            ...prevData,
+            messages: [...prevData.messages, userMsg, assistantMsg],
+          };
+        }
+      );
     } catch (err: any) {
-      console.error('Failed to execute quick action:', err);
       const errMsg =
-        err?.response?.data?.error?.message ||
         err?.message ||
         'Quick action failed. Please verify provider configuration.';
-      setError(errMsg);
+      setChatError(errMsg);
     } finally {
       setIsSending(false);
     }
   };
 
-  // If initialAction prop was provided (e.g. from artifact editor or git history), execute it once
+  // Execute initialAction prop once if provided
   useEffect(() => {
     if (initialAction) {
       handleTriggerQuickAction(initialAction.action, initialAction.targetId);
@@ -293,37 +299,50 @@ export const ProjectAssistantTab: React.FC<ProjectAssistantTabProps> = ({
   }, [initialAction]);
 
   return (
-    <div className="flex h-[calc(100vh-180px)] min-h-[550px] rounded-2xl overflow-hidden border border-surface-800 bg-surface-950 shadow-2xl">
-      {/* Left Sidebar: Conversations */}
-      <div className="w-72 sm:w-80 flex-shrink-0 hidden md:block">
-        <AssistantConversationList
-          conversations={conversations}
-          activeConversationId={activeConversationId}
-          onSelectConversation={(id) => setActiveConversationId(id)}
-          onNewConversation={handleNewConversation}
-          onRenameConversation={handleRenameConversation}
-          onDeleteConversation={handleDeleteConversation}
-          isLoading={isLoadingConversations}
-        />
-      </div>
+    <div className="assistant-container">
+      {/* Sidebar: Conversations */}
+      <AssistantConversationList
+        conversations={conversations}
+        activeConversationId={activeConversationId}
+        onSelectConversation={(id) => setActiveConversationId(id)}
+        onNewConversation={handleNewConversation}
+        onRenameConversation={handleRenameConversation}
+        onDeleteConversation={handleDeleteConversation}
+        isLoading={isLoadingConversations}
+        error={conversationsError}
+        onRetry={() => refetchConversations()}
+        isOpenMobile={isMobileSidebarOpen}
+        onCloseMobile={() => setIsMobileSidebarOpen(false)}
+      />
 
       {/* Main Chat Panel */}
-      <div className="flex-1 min-w-0">
-        <AssistantChatView
-          conversation={currentConversation}
-          messages={messages}
-          config={config}
-          isLoading={isLoadingMessages}
-          isSending={isSending}
-          error={error}
-          onSendMessage={handleSendMessage}
-          onTriggerQuickAction={handleTriggerQuickAction}
-          onNavigateToArtifact={onNavigateToArtifact}
-          onNavigateToCommit={onNavigateToCommit}
-          onNavigateToTask={onNavigateToTask}
-          onNavigateToReview={onNavigateToReview}
-        />
-      </div>
+      <AssistantChatView
+        conversation={currentConversation}
+        messages={messages}
+        config={config}
+        isLoading={isLoadingMessages}
+        isSending={isSending}
+        error={activeError}
+        onSendMessage={handleSendMessage}
+        onTriggerQuickAction={handleTriggerQuickAction}
+        onRetryLastMessage={() => {
+          if (rawMessagesError) {
+            refetchMessages();
+            return;
+          }
+          if (messages.length > 0) {
+            const lastUserMsg = [...messages].reverse().find((m) => m.role === 'user');
+            if (lastUserMsg) {
+              handleSendMessage(lastUserMsg.content);
+            }
+          }
+        }}
+        onToggleSidebar={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
+        onNavigateToArtifact={onNavigateToArtifact}
+        onNavigateToCommit={onNavigateToCommit}
+        onNavigateToTask={onNavigateToTask}
+        onNavigateToReview={onNavigateToReview}
+      />
     </div>
   );
 };
