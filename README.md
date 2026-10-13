@@ -143,29 +143,46 @@ cp backend/.env.example backend/.env
 cp frontend/.env.example frontend/.env
 ```
 
-### 2. Option A: Run Both Together from Project Root (Recommended)
+### 2. Database Setup & Migrations (PostgreSQL)
+
+Ensure PostgreSQL is running locally (e.g. on port `5432` with database `versora_dev`), then run database migrations:
 
 ```bash
-# Install root dependencies (concurrently)
+cd backend
+npm run db:migrate
+```
+
+To verify the database schema and migration snapshots at any time:
+
+```bash
+npm run db:check
+```
+
+### 3. Run Development Servers
+
+#### Option A: Run from Project Root (Recommended)
+
+```bash
+# Install root dependencies
 npm install
 
-# Start both backend and frontend with a single command
+# Start both backend and frontend concurrently
 npm run dev
 ```
 
 - **Backend:** Starts on `http://localhost:4000` (Health: `http://localhost:4000/api/health`)
-- **Frontend:** Starts on `http://localhost:5173` with proxying to backend
+- **Frontend:** Starts on `http://localhost:5173` with automated `/api` proxying to backend
 
-### 3. Option B: Run in Separate Terminals
+#### Option B: Run in Separate Terminals
 
-#### Terminal 1 (Backend API):
+##### Terminal 1 (Backend API):
 ```bash
 cd backend
 npm install
 npm run dev
 ```
 
-#### Terminal 2 (Frontend Client):
+##### Terminal 2 (Frontend Client):
 ```bash
 cd frontend
 npm install
@@ -174,15 +191,17 @@ npm run dev
 
 ---
 
-## 🚦 Current Phase Status
+## 🚦 Phase 2 Completion Status
 
-- **Current Phase:** `Phase 0 — Product Architecture and Foundation` ✅
-- **Implemented:**
-  - Full architectural specifications and planning documentation
-  - Strict TypeScript configurations for client and server
-  - Design system tokens (colors, typography, elevation, glassmorphism, responsive grid)
-  - Custom Versora vector brand mark component
-  - Minimal working Express API with health check endpoint (`/api/health`) and structured error handling
-  - Minimal working React SPA with TanStack Query checking live backend connectivity
-  - Beginner vs. Advanced terminology preview demonstrating core product philosophy
-- **Intentionally Deferred to Future Phases:** Authentication, database connections, Git workspace operations, artifact relationship mapping, AI assistant, and object storage.
+- **Status:** `Phase 2 — Core Workspace, Native Git, GitHub Integration, and Project Intelligence` ✅ **COMPLETE**
+- **Features Implemented & Verified:**
+  - **Authentication & User Management:** Registration, login, password hashing (Argon2id), JWT authentication, protected routes, and user profile management.
+  - **Project Management:** Project creation, listing, updating, deletion, and owner-only access controls.
+  - **Workspace & Artifact Management:** Folder tree hierarchy, direct artifact creation with modal validation, file uploads, downloads, renames, moves, and deletions with local storage persistence and Git synchronization.
+  - **Editor & Previews:** Integrated Monaco Editor with Ctrl+S/Cmd+S shortcuts, unsaved change alerts, document previews for Markdown, DOCX, XLSX, PPTX, CSV, images, and PDFs.
+  - **Native Git Engine:** Automated repository initialization, working-tree status, textual diffs, version commits, branch creation, branch switching, and safe restore with backup tags.
+  - **GitHub Remote Integration:** GitHub OAuth account linking, encrypted access token storage (AES-256-GCM), remote publishing, fetch, push, safe fast-forward pull, divergence protection, and non-interactive authentication.
+  - **Project Intelligence:** Artifact relationship tracking (`depends_on`, `documents`, `tests`, `generated_from`, `related_to`), Git provenance traceability, rule-based change impact analysis, and review/dismiss workflows.
+  - **Project Activity Timeline:** Real-time chronological audit feed across file changes, Git commits, GitHub syncs, and relationships, with sanitized metadata and category filtering (`All`, `Artifacts`, `Git`, `GitHub`, `Connections`).
+
+- **Deferred to Phase 3:** Project invitations, team collaboration discussions, comment threads, and notification streams.

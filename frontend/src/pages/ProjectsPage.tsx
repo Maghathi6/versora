@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '../components/common/PageHeader';
 import { EmptyState } from '../components/common/EmptyState';
 import { Badge } from '../components/common/Badge';
@@ -12,6 +13,7 @@ import {
   IconCheck,
   IconClose,
   IconFolder,
+  IconArrowRight,
 } from '../components/common/Icons';
 import { useTerminology } from '../context/TerminologyContext';
 import { projectService } from '../services/projectService';
@@ -19,6 +21,7 @@ import { Project } from '../types/project';
 import { ApiError } from '../services/apiClient';
 
 export const ProjectsPage: React.FC = () => {
+  const navigate = useNavigate();
   const { t, mode } = useTerminology();
 
   // Data State
@@ -334,7 +337,7 @@ export const ProjectsPage: React.FC = () => {
               <div
                 key={project.id}
                 className="card"
-                onClick={() => openDetailsModal(project)}
+                onClick={() => navigate(`/projects/${project.id}`)}
                 style={{
                   cursor: 'pointer',
                   position: 'relative',
@@ -405,6 +408,31 @@ export const ProjectsPage: React.FC = () => {
                     style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}
                     onClick={(e) => e.stopPropagation()}
                   >
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      style={{
+                        padding: '0.28rem 0.65rem',
+                        fontSize: '0.78rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.35rem',
+                      }}
+                      title="Open Workspace"
+                      onClick={() => navigate(`/projects/${project.id}`)}
+                    >
+                      <span>Open</span>
+                      <IconArrowRight size={13} />
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      style={{ padding: '0.3rem 0.5rem', fontSize: '0.8rem' }}
+                      title="Project info"
+                      onClick={() => openDetailsModal(project)}
+                    >
+                      <IconFolder size={14} />
+                    </button>
                     <button
                       type="button"
                       className="btn btn-ghost"
@@ -886,6 +914,18 @@ export const ProjectsPage: React.FC = () => {
                 <span>{selectedProject.name}</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  icon={<IconArrowRight size={14} />}
+                  onClick={() => {
+                    const pid = selectedProject.id;
+                    setSelectedProject(null);
+                    navigate(`/projects/${pid}`);
+                  }}
+                >
+                  Open Workspace
+                </Button>
                 <Button
                   variant="outline"
                   size="sm"

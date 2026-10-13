@@ -8,5 +8,9 @@ export * from './healthService';
 export * from './authService';
 export * from './userService';
 export * from './projectService';
+export * from './artifactService';
+export * from './gitService';
+export * from './githubService';
+export * from './intelligenceService';
 export * from './types';
 

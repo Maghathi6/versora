@@ -34,6 +34,32 @@ const envSchema = z.object({
   JWT_EXPIRES_IN: z
     .string()
     .default('15m'),
+  STORAGE_ROOT: z
+    .string()
+    .default('storage/artifacts'),
+  GIT_REPOS_ROOT: z
+    .string()
+    .default('storage/repos'),
+  FRONTEND_URL: z
+    .string()
+    .default('http://localhost:5173'),
+  GITHUB_CLIENT_ID: z
+    .string()
+    .optional(),
+  GITHUB_CLIENT_SECRET: z
+    .string()
+    .optional(),
+  GITHUB_CALLBACK_URL: z
+    .string()
+    .default('http://localhost:4000/api/v1/github/oauth/callback'),
+  GITHUB_TOKEN_ENCRYPTION_KEY: z
+    .string()
+    .optional()
+    .default(
+      process.env.NODE_ENV === 'test'
+        ? '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
+        : (process.env.GITHUB_TOKEN_ENCRYPTION_KEY as string)
+    ),
 });
 
 const parsedEnv = envSchema.safeParse(process.env);

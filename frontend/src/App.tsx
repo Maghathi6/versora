@@ -11,6 +11,7 @@ import { LoginPage } from './pages/LoginPage';
 import { SignupPage } from './pages/SignupPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { ProjectsPage } from './pages/ProjectsPage';
+import { ProjectWorkspacePage } from './pages/ProjectWorkspacePage';
 import { ActivityPage } from './pages/ActivityPage';
 import { ReviewsPage } from './pages/ReviewsPage';
 import { NotificationsPage } from './pages/NotificationsPage';
@@ -33,6 +34,7 @@ export const App: React.FC = () => {
               <Route element={<AppShell />}>
                 <Route path="/dashboard" element={<DashboardPage />} />
                 <Route path="/projects" element={<ProjectsPage />} />
+                <Route path="/projects/:projectId" element={<ProjectWorkspacePage />} />
                 <Route path="/activity" element={<ActivityPage />} />
                 <Route path="/reviews" element={<ReviewsPage />} />
                 <Route path="/notifications" element={<NotificationsPage />} />

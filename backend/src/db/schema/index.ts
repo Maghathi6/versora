@@ -5,3 +5,6 @@
 
 export * from './users';
 export * from './projects';
+export * from './artifacts';
+export * from './github';
+export * from './intelligence';

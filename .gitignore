@@ -39,3 +39,6 @@ coverage/
 .eslintcache
 tmp/
 scratch/
+/storage/
+/backend/storage/
+backend/storage/
