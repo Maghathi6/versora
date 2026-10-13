@@ -82,8 +82,10 @@ import { ProjectTeamTab } from '../components/collaboration/ProjectTeamTab';
 import { ProjectTasksTab } from '../components/collaboration/ProjectTasksTab';
 import { ProjectReviewsTab } from '../components/collaboration/ProjectReviewsTab';
 import { ArtifactCommentsPanel } from '../components/collaboration/ArtifactCommentsPanel';
+import { ProjectAssistantTab } from '../components/assistant/ProjectAssistantTab';
+import { QuickActionType } from '../types/assistant';
 
-type WorkspaceTab = 'overview' | 'files' | 'changes' | 'history' | 'tasks' | 'reviews' | 'team' | 'activity';
+type WorkspaceTab = 'overview' | 'files' | 'changes' | 'history' | 'tasks' | 'reviews' | 'team' | 'activity' | 'assistant';
 
 export const ProjectWorkspacePage: React.FC = () => {
   const { projectId } = useParams<{ projectId: string }>();
@@ -93,10 +95,14 @@ export const ProjectWorkspacePage: React.FC = () => {
   // Navigation tab & folder path from URL
   const tabParam = searchParams.get('tab') as WorkspaceTab | null;
   const [activeTab, setActiveTab] = useState<WorkspaceTab>(
-    tabParam && ['overview', 'files', 'changes', 'history', 'tasks', 'reviews', 'team', 'activity'].includes(tabParam)
+    tabParam && ['overview', 'files', 'changes', 'history', 'tasks', 'reviews', 'team', 'activity', 'assistant'].includes(tabParam)
       ? tabParam
       : 'overview'
   );
+  const [assistantInitialAction, setAssistantInitialAction] = useState<{
+    action: QuickActionType;
+    targetId?: string;
+  } | null>(null);
   const [isCommentsOpen, setIsCommentsOpen] = useState<boolean>(false);
   const currentFolderId = searchParams.get('folder') || null;
 
@@ -1707,6 +1713,28 @@ export const ProjectWorkspacePage: React.FC = () => {
           <IconLayers size={16} />
           <span>Activity & Roadmap</span>
         </button>
+
+        <button
+          type="button"
+          onClick={() => handleSwitchTab('assistant')}
+          style={{
+            padding: '0.6rem 0.2rem',
+            background: 'none',
+            border: 'none',
+            borderBottom: activeTab === 'assistant' ? '2px solid var(--brand-primary)' : '2px solid transparent',
+            color: activeTab === 'assistant' ? 'var(--text-primary)' : 'var(--text-secondary)',
+            fontWeight: activeTab === 'assistant' ? 700 : 500,
+            cursor: 'pointer',
+            fontSize: '0.92rem',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.4rem',
+          }}
+        >
+          <IconSparkles size={16} className="text-primary-400" />
+          <span>AI Assistant</span>
+          <Badge variant="brand">Grounded</Badge>
+        </button>
       </div>
 
       {/* TAB 1: OVERVIEW */}
@@ -2149,6 +2177,13 @@ export const ProjectWorkspacePage: React.FC = () => {
                               onSave={handleSaveEditorContent}
                               onClose={handleCloseEditor}
                               onDownload={() => handleDownloadFile(activeEditorFile, { stopPropagation: () => {} } as any)}
+                              onAskAI={() => {
+                                setAssistantInitialAction({
+                                  action: 'explain-artifact',
+                                  targetId: activeEditorFile.id,
+                                });
+                                handleSwitchTab('assistant');
+                              }}
                             />
                           </div>
                         );
@@ -3022,6 +3057,32 @@ export const ProjectWorkspacePage: React.FC = () => {
       {/* TAB 5: REAL PROJECT ACTIVITY TIMELINE */}
       {activeTab === 'activity' && (
         <ProjectActivityTimeline projectId={projectId!} />
+      )}
+
+      {/* TAB 6: AI PROJECT ASSISTANT */}
+      {activeTab === 'assistant' && (
+        <ProjectAssistantTab
+          projectId={projectId!}
+          onNavigateToArtifact={(pathOrId) => {
+            const found = allProjectArtifacts.find(
+              (a) => a.id === pathOrId || a.path === pathOrId || a.name === pathOrId
+            );
+            if (found) {
+              handleOpenFile(found);
+              handleSwitchTab('files');
+            }
+          }}
+          onNavigateToCommit={(_hash) => {
+            handleSwitchTab('history');
+          }}
+          onNavigateToTask={(_taskId) => {
+            handleSwitchTab('tasks');
+          }}
+          onNavigateToReview={(_reviewId) => {
+            handleSwitchTab('reviews');
+          }}
+          initialAction={assistantInitialAction}
+        />
       )}
 
       {/* CREATE FOLDER MODAL */}

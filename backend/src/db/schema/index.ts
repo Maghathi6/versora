@@ -9,3 +9,4 @@ export * from './artifacts';
 export * from './github';
 export * from './intelligence';
 export * from './collaboration';
+export * from './assistant';

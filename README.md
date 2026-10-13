@@ -191,17 +191,106 @@ npm run dev
 
 ---
 
-## 🚦 Phase 2 Completion Status
+---
 
-- **Status:** `Phase 2 — Core Workspace, Native Git, GitHub Integration, and Project Intelligence` ✅ **COMPLETE**
-- **Features Implemented & Verified:**
-  - **Authentication & User Management:** Registration, login, password hashing (Argon2id), JWT authentication, protected routes, and user profile management.
-  - **Project Management:** Project creation, listing, updating, deletion, and owner-only access controls.
-  - **Workspace & Artifact Management:** Folder tree hierarchy, direct artifact creation with modal validation, file uploads, downloads, renames, moves, and deletions with local storage persistence and Git synchronization.
-  - **Editor & Previews:** Integrated Monaco Editor with Ctrl+S/Cmd+S shortcuts, unsaved change alerts, document previews for Markdown, DOCX, XLSX, PPTX, CSV, images, and PDFs.
-  - **Native Git Engine:** Automated repository initialization, working-tree status, textual diffs, version commits, branch creation, branch switching, and safe restore with backup tags.
-  - **GitHub Remote Integration:** GitHub OAuth account linking, encrypted access token storage (AES-256-GCM), remote publishing, fetch, push, safe fast-forward pull, divergence protection, and non-interactive authentication.
-  - **Project Intelligence:** Artifact relationship tracking (`depends_on`, `documents`, `tests`, `generated_from`, `related_to`), Git provenance traceability, rule-based change impact analysis, and review/dismiss workflows.
-  - **Project Activity Timeline:** Real-time chronological audit feed across file changes, Git commits, GitHub syncs, and relationships, with sanitized metadata and category filtering (`All`, `Artifacts`, `Git`, `GitHub`, `Connections`).
+## 🚦 Phase Completion Status
 
-- **Deferred to Phase 3:** Project invitations, team collaboration discussions, comment threads, and notification streams.
+### ✅ Phase 3 — Collaboration, Reviews, Tasks, and Notifications (COMPLETE)
+- **Team Collaboration:** Multi-member project access, role-based authorization (`owner`, `maintainer`, `contributor`, `viewer`).
+- **Reviews & Decisions:** Review requests on branches or artifacts with structured approval/rejection decisions and reviewer summaries.
+- **Tasks & Assignments:** Project-scoped task tracking with priorities (`urgent`, `high`, `medium`, `low`), statuses (`todo`, `in_progress`, `in_review`, `completed`), assignments, and linked artifacts.
+- **Threaded Comments & Notifications:** In-app notification bell with real-time badges, read/unread states, and threaded discussions on artifacts, reviews, and tasks.
+
+---
+
+### 🤖 Phase 4 — AI Project Assistant & Project Intelligence (COMPLETE)
+Grounded AI intelligence that understands your actual Versora project data. Rather than acting like a disconnected chatbot, Versora's Assistant answers questions using real accessible artifacts, Git commit history, relationship graphs, impact analysis, reviews, tasks, and project activity feeds.
+
+#### Key Features
+1. **Multi-Provider AI Service Layer:**
+   - Provider-independent architecture with support for:
+     - **OpenAI** (`gpt-4o`, `gpt-4o-mini`, etc.)
+     - **Anthropic Claude** (`claude-3-5-sonnet-latest`, `claude-3-haiku`, etc.)
+     - **Google Gemini** (`gemini-1.5-flash`, `gemini-1.5-pro`, etc.)
+     - **Ollama / Local LLMs** (any OpenAI-compatible local server, e.g. `llama3`, `mistral`, `deepseek`)
+     - **Mock Provider** (for hermetic automated testing)
+   - Zero-secret client exposure: all keys are kept strictly on the backend.
+   - Graceful unconfigured state: informative UI warning with exact setup instructions when `AI_PROVIDER` or `AI_API_KEY` is missing.
+
+2. **Authorized, Project-Grounded Context Retrieval:**
+   - Multi-source retrieval:
+     - Project metadata (name, description)
+     - Artifacts (keyword-scored file matching, safe truncation, non-text/binary exclusion)
+     - Traceability relationships (`depends_on`, `documents`, `tests`, etc.)
+     - Impact analysis predictions
+     - Git branch, working-tree modifications, commit history, and commit diffs
+     - Reviews and approval decisions
+     - Project tasks, priorities, and assignments
+     - Project audit timeline activities
+   - Project-scoped authorization: Users can only query projects they are members of. Cross-project data leakage is strictly prevented.
+   - Read-only safety: AI responses never execute shell commands, edit database records, or mutate Git repositories.
+
+3. **Evidence Citations & Anti-Hallucination:**
+   - Structured evidence references parsed from responses (`[artifact:name]`, `[commit:hash]`, `[task:id]`, `[review:id]`).
+   - Every citation is validated against actual entities retrieved for that request; hallucinations are automatically pruned.
+   - Interactive source chips in the UI allowing one-click navigation to the referenced file, commit, task, or review.
+   - Uncertainty banners displayed whenever the assistant flags missing context or estimated predictions.
+
+4. **Context-Aware Quick Actions:**
+   - **Explain Artifact (`explain-artifact`):** Explains code purpose, architecture, and connections to related files. Directly accessible from the Monaco Editor toolbar via the **"Ask AI"** button.
+   - **Summarize Commit (`summarize-commit`):** Summarizes diffs, modified files, and downstream consequences of any commit.
+   - **Explain Impact (`explain-impact`):** Translates graph impact predictions into plain-language risk assessments.
+   - **Review Assistance (`review-assistance`):** Summarizes pending reviews, blocking tasks, and required checks.
+   - **Project Summary (`project-summary`):** Generates a high-level executive summary of project goals, health, and recent changes.
+
+5. **Persistent, Project-Scoped Conversations:**
+   - Project-scoped chat history stored in PostgreSQL via Drizzle ORM (`assistant_conversations`, `assistant_messages`).
+   - Ownership isolation: Conversations are private to the authoring user.
+   - Full conversation lifecycle: Create, list, switch, rename, and delete conversations.
+
+6. **Prompt Injection Hardening:**
+   - Retrieved artifact content, user comments, and commit diffs are encapsulated within strict `<project_data_boundary>` delimiters.
+   - System prompt instructs model to treat all retrieved content strictly as inert reference data rather than executable instructions.
+
+---
+
+## ⚙️ AI Provider Setup Guide
+
+To enable AI features, set the following environment variables in `backend/.env`:
+
+### Option 1: OpenAI
+```env
+AI_PROVIDER=openai
+AI_API_KEY=sk-proj-your-openai-api-key
+AI_MODEL=gpt-4o-mini
+```
+
+### Option 2: Anthropic Claude
+```env
+AI_PROVIDER=anthropic
+AI_API_KEY=sk-ant-your-anthropic-api-key
+AI_MODEL=claude-3-5-sonnet-latest
+```
+
+### Option 3: Google Gemini
+```env
+AI_PROVIDER=gemini
+AI_API_KEY=your-gemini-api-key
+AI_MODEL=gemini-1.5-flash
+```
+
+### Option 4: Local Ollama (Free, Offline, Privacy-Preserving)
+```bash
+# 1. Start Ollama with your chosen model
+ollama run llama3
+```
+In `backend/.env`:
+```env
+AI_PROVIDER=ollama
+AI_BASE_URL=http://localhost:11434/v1
+AI_MODEL=llama3
+AI_API_KEY=ollama
+```
+
+*Note: If no AI provider is configured, the Versora frontend will display an intuitive configuration prompt without breaking existing workspace features.*
+

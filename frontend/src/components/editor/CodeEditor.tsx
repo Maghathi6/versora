@@ -7,6 +7,7 @@ import {
   IconCheck,
   IconAlertCircle,
   IconLayers,
+  IconSparkles,
 } from '../common/Icons';
 
 export interface CodeEditorProps {
@@ -22,6 +23,7 @@ export interface CodeEditorProps {
   onSave: (currentValue?: string) => void;
   onClose: () => void;
   onDownload?: () => void;
+  onAskAI?: () => void;
 }
 
 export const CodeEditor: React.FC<CodeEditorProps> = ({
@@ -37,6 +39,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   onSave,
   onClose,
   onDownload,
+  onAskAI,
 }) => {
   const editorRef = useRef<any>(null);
   const monacoRef = useRef<any>(null);
@@ -235,6 +238,18 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
         {/* Action Controls */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <Badge variant="neutral">{language.toUpperCase()}</Badge>
+
+          {onAskAI && (
+            <Button
+              variant="outline"
+              size="sm"
+              icon={<IconSparkles size={14} className="text-primary-400" />}
+              onClick={onAskAI}
+              title="Explain this file with AI Assistant"
+            >
+              Ask AI
+            </Button>
+          )}
 
           {onDownload && (
             <Button variant="ghost" size="sm" onClick={onDownload} title="Download current file">

@@ -60,6 +60,34 @@ const envSchema = z.object({
         ? '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
         : (process.env.GITHUB_TOKEN_ENCRYPTION_KEY as string)
     ),
+  AI_PROVIDER: z
+    .enum(['mock', 'openai', 'anthropic', 'gemini', 'ollama', 'custom'])
+    .optional(),
+  AI_API_KEY: z
+    .string()
+    .optional(),
+  AI_MODEL: z
+    .string()
+    .optional(),
+  AI_BASE_URL: z
+    .string()
+    .optional(),
+  AI_MAX_TOKENS: z
+    .string()
+    .optional()
+    .default('2000')
+    .transform((val) => parseInt(val, 10))
+    .refine((val) => !isNaN(val) && val > 0, {
+      message: 'AI_MAX_TOKENS must be a positive integer',
+    }),
+  AI_TEMPERATURE: z
+    .string()
+    .optional()
+    .default('0.2')
+    .transform((val) => parseFloat(val))
+    .refine((val) => !isNaN(val) && val >= 0 && val <= 2, {
+      message: 'AI_TEMPERATURE must be a number between 0 and 2',
+    }),
 });
 
 const parsedEnv = envSchema.safeParse(process.env);
